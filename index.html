@@ -192,6 +192,22 @@ svg{display:block;flex:none}
 .misses .q{color:var(--muted)}
 .misses .a{font-weight:600}
 .endscr .row .btn{flex:1 1 180px}
+
+.pat{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:10px}
+.pat .ptitle{margin:0;font-size:18px}
+.pat ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.pat li{line-height:1.5}
+.pat .cf{margin:0;font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.pat .ex{font-weight:600}
+.passage{font-size:19px;line-height:1.65;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.reveal{font-size:24px;font-weight:600;min-height:40px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.self{display:flex;gap:10px;flex:1 1 260px}
+.self .btn{flex:1}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-weight:600;color:var(--muted)}
+.tabs button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-t)}
+.est{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.checking{color:var(--muted);font-size:15px}
 </style>
 
 </head>
@@ -204,117 +220,245 @@ svg{display:block;flex:none}
 (() => {
 'use strict';
 
-/* Course content. word: [target, english, [accepted alternatives]]  sentence: [target, english]  fill: [sentence with ___, answer, [distractors], english] */
+/* Course content. Unit: p = pattern note {h, l[], cf}; w = words [target, english, [accepted]]; s = sentences [target, english]; f = fills [sentence with ___, answer, [distractors], english]; r = passage {t, q:[[question, answer, [distractors]]]} */
 const COURSES = {
-la: { name:'Latin', native:'Lingua Latīna', note:'Classical spelling with macrons', lang:'la', color:0,
- units:[
-  {t:'Salvē', en:'Greetings and “to be”',
-   w:[['salvē','hello'],['valē','goodbye'],['puella','girl'],['puer','boy'],['fēmina','woman'],['vir','man'],['sum','I am'],['est','is'],['et','and'],['nōn','not']],
-   s:[['Salvē, puer!','Hello, boy!'],['Puella sum.','I am a girl.'],['Vir sum, nōn puer.','I am a man, not a boy.'],['Fēmina est.','She is a woman.'],['Puer et puella.','A boy and a girl.']],
-   f:[['Ego vir ___.','sum',['est','et'],'I am a man.'],['Puer ___ puella.','et',['nōn','sum'],'A boy and a girl.'],['___, puella!','Valē',['Et','Nōn'],'Goodbye, girl!']]},
-  {t:'Prīma dēclīnātiō', en:'First declension and verbs',
-   w:[['rosa','rose'],['aqua','water'],['terra','land, earth'],['vīta','life'],['patria','fatherland'],['amō','I love'],['laudō','I praise'],['cōgitō','I think'],['amat','he/she loves'],['videt','he/she sees']],
-   s:[['Puella rosam amat.','The girl loves the rose.'],['Vir aquam videt.','The man sees the water.'],['Patriam laudō.','I praise the fatherland.'],['Vītam amō.','I love life.'],['Cōgitō, ergo sum.','I think, therefore I am.']],
-   f:[['Puella ___ amat.','rosam',['rosa','rosae'],'The girl loves the rose.'],['Vir ___ videt.','terram',['terra','terrae'],'The man sees the land.'],['Vītam ___.','amō',['amat','amant'],'I love life.']]},
-  {t:'Secunda dēclīnātiō', en:'Second declension and adjectives',
-   w:[['amīcus','friend'],['fīlius','son'],['fīlia','daughter'],['deus','god'],['populus','people'],['liber','book'],['bonus','good'],['magnus','great, large'],['saepe','often'],['habet','he/she has']],
-   s:[['Amīcus bonus est.','The friend is good.'],['Fīlius librum habet.','The son has a book.'],['Populus deum laudat.','The people praise the god.'],['Fīlia saepe cōgitat.','The daughter often thinks.'],['Deus magnus est.','God is great.']],
-   f:[['Fīlius ___ habet.','librum',['liber','librī'],'The son has a book.'],['Amīcus ___ est.','bonus',['bona','bonum'],'The friend is good.'],['Fīlia ___ est.','bona',['bonus','bonum'],'The daughter is good.']]},
-  {t:'Plūrālia', en:'Plurals',
-   w:[['puellae','girls'],['puerī','boys'],['amīcī','friends'],['sunt','they are'],['amant','they love'],['vident','they see'],['multī','many'],['via','road'],['Rōma','Rome'],['omnēs','all']],
-   s:[['Puerī et puellae amīcī sunt.','The boys and girls are friends.'],['Multī Rōmam amant.','Many love Rome.'],['Amīcī viam vident.','The friends see the road.'],['Puellae rosās amant.','The girls love roses.'],['Omnēs viae Rōmam dūcunt.','All roads lead to Rome.']],
-   f:[['Puerī amīcī ___.','sunt',['est','sum'],'The boys are friends.'],['Puellae Rōmam ___.','amant',['amat','amō'],'The girls love Rome.'],['Omnēs ___ Rōmam dūcunt.','viae',['via','viam'],'All roads lead to Rome.']]},
-  {t:'Sententiae', en:'Famous phrases',
-   w:[['diēs','day'],['carpe','seize'],['vēnī','I came'],['vīdī','I saw'],['vīcī','I conquered'],['tempus','time'],['fugit','flees, flies'],['pāx','peace'],['vōbīscum','with you (all)'],['semper','always']],
-   s:[['Carpe diem.','Seize the day.'],['Vēnī, vīdī, vīcī.','I came, I saw, I conquered.'],['Tempus fugit.','Time flies.'],['Pāx vōbīscum.','Peace be with you.'],['Semper fidēlis.','Always faithful.']],
-   f:[['Carpe ___.','diem',['diēs','diēī'],'Seize the day.'],['Vēnī, ___, vīcī.','vīdī',['videt','vident'],'I came, I saw, I conquered.'],['Tempus ___.','fugit',['fugiō','fugiunt'],'Time flies.']]}
- ],
- x:{ego:'I',rosam:'rose (object)',rosās:'roses (object)',aquam:'water (object)',terram:'land (object)',patriam:'fatherland (object)',vītam:'life (object)',ergo:'therefore',librum:'book (object)',deum:'god (object)',laudat:'praises',cōgitat:'thinks',viam:'road (object)',viae:'roads',rōmam:'Rome (object)',dūcunt:'they lead',diem:'day (object)',fidēlis:'faithful'}
+la: { name:'Latin', native:'Lingua Latīna', note:'Classical, with macrons · follows Wheelock', lang:'la', levels:[{units:[
+  {t:'Sum', en:'To be, and no articles',
+   p:{h:'Latin has no “a” or “the”, and drops pronouns', l:[
+     '<span class="ex">puella</span> means girl, a girl, or the girl. Context decides.',
+     'The verb ending tells you who: <span class="ex">sum</span> I am · <span class="ex">es</span> you are · <span class="ex">est</span> he/she/it is · <span class="ex">sumus</span> we are · <span class="ex">estis</span> you all are · <span class="ex">sunt</span> they are.',
+     'Word order is free; the verb usually comes last. <span class="ex">Nauta sum</span> = I am a sailor.',
+     'Macrons (ā ē ī ō ū) mark long vowels. Type without them and you are still marked right.'],
+     cf:'Spanish soy / es / son, Italian sono / è / sono and Portuguese sou / é / são all descend from these forms.'},
+   w:[['puella','girl'],['nauta','sailor'],['poēta','poet'],['vīta','life'],['patria','fatherland'],['fortūna','fortune, luck'],['pecūnia','money'],['fāma','fame, rumor'],['et','and'],['nōn','not']],
+   s:[['Nauta sum.','I am a sailor.'],['Poēta nōn es.','You are not a poet.'],['Puella est.','She is a girl.'],['Pecūnia nōn est vīta.','Money is not life.'],['Fāma et fortūna.','Fame and fortune.'],['Poēta et nauta sunt.','They are a poet and a sailor.']],
+   f:[['Nauta ___.','sum',['est','es'],'I am a sailor.'],['Pecūnia ___ est vīta.','nōn',['et','sum'],'Money is not life.'],['Poēta et nauta ___.','sunt',['est','sumus'],'They are a poet and a sailor.']],
+   r:{t:'Poēta sum. Patria mea Rōma est. Nauta nōn sum; pecūnia nōn est vīta.', q:[['What is the speaker?','A poet',['A sailor','A girl']],['What does the speaker say about money?','It is not life',['It is fortune','It is fame']]]}},
+  {t:'Prīma dēclīnātiō', en:'First declension and -ō verbs',
+   p:{h:'The ending shows the job a noun does', l:[
+     'Subject (nominative): <span class="ex">puell<b>a</b></span>. Direct object (accusative): <span class="ex">puell<b>am</b></span>. <span class="ex">Puella rosam amat</span> = the girl loves the rose; <span class="ex">Rosam puella amat</span> means the same.',
+     'Verbs: <span class="ex">amō</span> I love · <span class="ex">amās</span> you love · <span class="ex">amat</span> he/she loves · <span class="ex">amāmus</span> we love · <span class="ex">amātis</span> you all love · <span class="ex">amant</span> they love.',
+     '<span class="ex">videō, vidēs, videt</span> (see) and <span class="ex">habeō, habēs, habet</span> (have) use the same endings on a different stem.'],
+     cf:'The Spanish, Italian and Portuguese -o / -as / -a endings (hablo, hablas, habla) are these Latin endings worn down.'},
+   w:[['rosa','rose'],['aqua','water'],['terra','land, earth'],['porta','gate'],['fīlia','daughter'],['amō','I love'],['laudō','I praise'],['vocō','I call'],['videō','I see'],['habeō','I have']],
+   s:[['Puella rosam amat.','The girl loves the rose.'],['Nauta aquam videt.','The sailor sees the water.'],['Poēta patriam laudat.','The poet praises the fatherland.'],['Fīliam vocō.','I call my daughter.'],['Terram et aquam habēmus.','We have land and water.'],['Fortūnam nōn habeō.','I do not have luck.']],
+   f:[['Puella ___ amat.','rosam',['rosa','rosae'],'The girl loves the rose.'],['Nauta aquam ___.','videt',['videō','vidēmus'],'The sailor sees the water.'],['Fīliam ___.','vocō',['vocat','vocant'],'I call my daughter.']],
+   r:{t:'Nauta sum. Aquam et terram videō. Fīliam habeō; fīlia rosās amat. Patriam laudō.', q:[['What does the daughter love?','Roses',['Water','The fatherland']],['What does the sailor praise?','The fatherland',['The gate','His daughter']]]}},
+  {t:'Secunda dēclīnātiō', en:'Second declension and plurals',
+   p:{h:'-us and -um nouns, and how plurals form', l:[
+     'Masculine nouns end in <span class="ex">-us</span> (amīcus), neuter in <span class="ex">-um</span> (dōnum). Object forms: <span class="ex">amīcum</span>, <span class="ex">dōnum</span> (neuter never changes).',
+     'Plural subjects: <span class="ex">puell<b>ae</b></span>, <span class="ex">amīc<b>ī</b></span>, <span class="ex">dōn<b>a</b></span>. Plural objects: <span class="ex">puell<b>ās</b></span>, <span class="ex">amīc<b>ōs</b></span>, <span class="ex">dōn<b>a</b></span>.',
+     'Adjectives copy the noun’s ending: <span class="ex">amīcī bonī</span>, <span class="ex">dōna magna</span>.'],
+     cf:'Italian plurals in -i (amici) and Spanish/Portuguese in -s (amigos) both trace back to these Latin plurals.'},
+   w:[['amīcus','friend'],['fīlius','son'],['populus','people'],['deus','god'],['dōnum','gift'],['bellum','war'],['bonus','good'],['magnus','great, large'],['multī','many'],['paucī','few']],
+   s:[['Amīcī bonī sunt.','The friends are good.'],['Fīlius dōnum habet.','The son has a gift.'],['Populus bellum nōn amat.','The people do not love war.'],['Deus magnus est.','God is great.'],['Paucī amīcī, multa dōna.','Few friends, many gifts.'],['Puellae amīcōs vident.','The girls see the friends.']],
+   f:[['Amīcī ___ sunt.','bonī',['bonus','bona'],'The friends are good.'],['Fīlius ___ habet.','dōnum',['dōna','dōnī'],'The son has a gift.'],['Puellae ___ vident.','amīcōs',['amīcus','amīcī'],'The girls see the friends.']],
+   r:{t:'Fīlius bonus sum. Amīcōs multōs habeō. Amīcī dōna magna nōn habent, sed bonī sunt.', q:[['What do the friends not have?','Great gifts',['Many friends','Money']],['What are the friends like?','Good',['Few','Great']]]}},
+  {t:'Genitīvus', en:'Possession and agreement',
+   p:{h:'“Of” is an ending, not a word', l:[
+     'Genitive = of / ’s: <span class="ex">fīlia naut<b>ae</b></span> the sailor’s daughter · <span class="ex">dōnum amīc<b>ī</b></span> the friend’s gift.',
+     'My / your agree like adjectives: <span class="ex">amīcus meus</span>, <span class="ex">fīlia mea</span>, <span class="ex">dōnum tuum</span>.',
+     'Adverbs never change: <span class="ex">semper</span> always, <span class="ex">saepe</span> often.'],
+     cf:'The Romance languages replaced this ending with a word: de (Spanish, Portuguese) and di (Italian).'},
+   w:[['rēgīna','queen'],['Rōma','Rome'],['via','road, way'],['sapientia','wisdom'],['ōtium','leisure'],['parvus','small'],['meus','my'],['tuus','your'],['semper','always'],['saepe','often']],
+   s:[['Fīlia nautae parva est.','The sailor’s daughter is small.'],['Via Rōmae magna est.','The road of Rome is great.'],['Amīcus meus semper bonus est.','My friend is always good.'],['Fīlium tuum saepe videō.','I often see your son.'],['Dōnum rēgīnae magnum est.','The queen’s gift is great.'],['Sapientiam amō.','I love wisdom.']],
+   f:[['Fīlia ___ parva est.','nautae',['nauta','nautam'],'The sailor’s daughter is small.'],['Amīcus ___ semper bonus est.','meus',['mea','meum'],'My friend is always good.'],['Fīlium ___ saepe videō.','tuum',['tuus','tua'],'I often see your son.']],
+   r:{t:'Amīca mea rēgīna nōn est, sed sapientiam magnam habet. Fīlius amīcae meae parvus est. Viam Rōmae saepe videō.', q:[['Who has great wisdom?','My friend',['The queen','My son']],['The friend’s son is…','Small',['Great','A sailor']]]}},
+  {t:'Imperātīvus', en:'Commands and famous lines',
+   p:{h:'Commands use the bare stem', l:[
+     'Singular command = verb minus -re: <span class="ex">amā!</span> love! · <span class="ex">vidē!</span> see! · <span class="ex">carpe!</span> seize! Plural adds -te: <span class="ex">amāte!</span>',
+     '<span class="ex">Cōgitō, ergō sum</span> and <span class="ex">Vēnī, vīdī, vīcī</span> use the forms you already know: first person, pronoun dropped.',
+     '<span class="ex">-ī</span> endings (vēnī, vīdī, vīcī) are the perfect tense: I came, I saw, I conquered. Level 2 covers it fully.'],
+     cf:'Romance commands work the same way: Spanish ¡habla!, Italian parla!, Portuguese fala!'},
+   w:[['carpe','seize!'],['diēs','day'],['tempus','time'],['fugit','flees, flies'],['vēnī','I came'],['vīdī','I saw'],['vīcī','I conquered'],['pāx','peace'],['cōgitō','I think'],['ergō','therefore']],
+   s:[['Carpe diem.','Seize the day.'],['Tempus fugit.','Time flies.'],['Vēnī, vīdī, vīcī.','I came, I saw, I conquered.'],['Cōgitō, ergō sum.','I think, therefore I am.'],['Pāx vōbīscum.','Peace be with you.'],['Amā patriam tuam!','Love your fatherland!']],
+   f:[['Carpe ___.','diem',['diēs','diēī'],'Seize the day.'],['Cōgitō, ___ sum.','ergō',['et','nōn'],'I think, therefore I am.'],['___ patriam tuam!','Amā',['Amō','Amat'],'Love your fatherland!']],
+   r:{t:'Tempus fugit; carpe diem. Vītam amā, amīcōs laudā, et pecūniam nōn amā. Cōgitā, ergō es.', q:[['What should you not love?','Money',['Life','Friends']],['“Tempus fugit” means…','Time flies',['Seize the day','Peace be with you']]]}}
+ ]}],
+ x:{ego:'I',sum:'I am',es:'you are',est:'is',sumus:'we are',sunt:'they are',mea:'my',meae:'of my',meus:'my',rōma:'Rome',rōmae:'of Rome',sed:'but',rosam:'rose (object)',rosās:'roses (object)',aquam:'water (object)',terram:'land (object)',patriam:'fatherland (object)',fīliam:'daughter (object)',fortūnam:'luck (object)',vītam:'life (object)',videt:'sees',videō:'I see',laudat:'praises',laudō:'I praise',vocō:'I call',habeō:'I have',habet:'has',habent:'they have',habēmus:'we have',amat:'loves',amant:'they love',amā:'love!',laudā:'praise!',cōgitā:'think!',bonī:'good (pl.)',bonus:'good',magna:'great (pl.)',magnam:'great (object)',magnum:'great',magnus:'great',multōs:'many (object)',multa:'many',dōna:'gifts',dōnum:'gift',amīcī:'friends',amīcōs:'friends (object)',amīca:'friend (f.)',amīcae:'of my friend (f.)',puellae:'girls',bellum:'war',nautae:'of the sailor',rēgīnae:'of the queen',parva:'small',parvus:'small',tuum:'your',tuam:'your',sapientiam:'wisdom (object)',viam:'road (object)',diem:'day (object)',vōbīscum:'with you (all)',ergō:'therefore',carpe:'seize!',fugit:'flies',vident:'they see',fīlium:'son (object)',pecūniam:'money (object)'}
 },
-es: { name:'Spanish', native:'Español', note:'Spain and Latin America', lang:'es', color:4,
- units:[
-  {t:'Saludos', en:'Greetings and people',
-   w:[['hola','hello'],['adiós','goodbye'],['por favor','please'],['gracias','thank you'],['sí','yes'],['no','no'],['el hombre','the man'],['la mujer','the woman'],['el niño','the boy'],['la niña','the girl']],
-   s:[['Hola, soy Ana.','Hello, I am Ana.'],['Gracias, adiós.','Thank you, goodbye.'],['La mujer y el hombre.','The woman and the man.'],['Sí, por favor.','Yes, please.'],['El niño no es un hombre.','The boy is not a man.']],
-   f:[['___ mujer','La',['El','Los'],'the woman'],['___ niño','El',['La','Las'],'the boy'],['Yo ___ un hombre.','soy',['es','eres'],'I am a man.']]},
-  {t:'La comida', en:'Food and drink',
-   w:[['el agua','water'],['el pan','bread'],['el vino','wine'],['el café','coffee'],['la manzana','apple'],['el queso','cheese'],['como','I eat'],['bebo','I drink'],['quiero','I want'],['la cuenta','the check']],
-   s:[['Bebo agua.','I drink water.'],['Como pan con queso.','I eat bread with cheese.'],['Quiero un café, por favor.','I want a coffee, please.'],['La cuenta, por favor.','The check, please.'],['Ella come una manzana.','She eats an apple.']],
-   f:[['Yo ___ agua.','bebo',['bebe','bebes'],'I drink water.'],['Ella ___ una manzana.','come',['como','comes'],'She eats an apple.'],['___ manzana','una',['un','unos'],'an apple']]},
-  {t:'En la ciudad', en:'Around town',
-   w:[['la casa','house'],['la calle','street'],['la iglesia','church'],['la ciudad','city'],['el tren','train'],['la estación','station'],['dónde está','where is'],['voy','I go'],['cerca','near'],['lejos','far']],
-   s:[['¿Dónde está la estación?','Where is the station?'],['Voy a la iglesia.','I go to the church.'],['La casa está cerca.','The house is near.'],['El tren está lejos.','The train is far.'],['Vivo en la ciudad.','I live in the city.']],
-   f:[['___ a la ciudad.','Voy',['Va','Vas'],'I go to the city.'],['La casa ___ cerca.','está',['es','estoy'],'The house is near.'],['Vivo ___ la ciudad.','en',['a','de'],'I live in the city.']]},
-  {t:'La familia', en:'Family',
-   w:[['la madre','mother'],['el padre','father'],['el hermano','brother'],['la hermana','sister'],['el amigo','friend'],['mi','my'],['grande','big'],['pequeño','small'],['tengo','I have'],['también','also']],
-   s:[['Tengo un hermano.','I have a brother.'],['Mi hermana es pequeña.','My sister is small.'],['Mi padre es mi amigo.','My father is my friend.'],['Tengo una hermana también.','I have a sister too.'],['La casa es grande.','The house is big.']],
-   f:[['Mi hermana es ___.','pequeña',['pequeño','pequeños'],'My sister is small.'],['___ un hermano.','Tengo',['Tiene','Tienes'],'I have a brother.'],['___ padre','El',['La','Las'],'the father']]},
-  {t:'De viaje', en:'Travel',
-   w:[['hoy','today'],['mañana','tomorrow'],['la noche','night'],['el billete','ticket',['el boleto','boleto']],['el aeropuerto','airport'],['la playa','beach'],['el mar','sea'],['necesito','I need'],['viajar','to travel'],['la maleta','suitcase']],
-   s:[['Hoy voy a la playa.','Today I go to the beach.'],['Necesito un billete.','I need a ticket.'],['Mañana voy al aeropuerto.','Tomorrow I go to the airport.'],['Quiero viajar.','I want to travel.'],['El mar es grande.','The sea is big.']],
-   f:[['Voy ___ aeropuerto.','al',['a la','el'],'I go to the airport.'],['Quiero ___.','viajar',['viajo','viaja'],'I want to travel.'],['Buenas ___.','noches',['noche','mañanas'],'Good night.']]}
- ],
- x:{soy:'I am',ana:'Ana (a name)',y:'and',es:'is',un:'a',una:'a, an',con:'with',ella:'she',come:'eats',a:'to',está:'is',vivo:'I live',en:'in',al:'to the',el:'the',la:'the',pequeña:'small',buenas:'good',noches:'nights',dónde:'where',yo:'I'}
+
+es: { name:'Spanish', native:'Español', note:'Neutral Latin American · Castilian forms noted', lang:'es', levels:[{units:[
+  {t:'Ser', en:'To be, and gender',
+   p:{h:'Every noun is el or la', l:[
+     'Nouns ending in -o are usually masculine (<span class="ex">el amigo</span>), -a usually feminine (<span class="ex">la casa</span>). Learn each noun with its article.',
+     '<span class="ex">ser</span> = to be (what something is): <span class="ex">soy</span> I am · <span class="ex">eres</span> you are · <span class="ex">es</span> he/she/it is · <span class="ex">somos</span> we are · <span class="ex">son</span> they are. (Spain adds <span class="ex">sois</span> for you all.)',
+     'Pronouns are dropped: <span class="ex">Soy Ana</span>, not “yo soy Ana”, unless you want emphasis.',
+     'Adjectives match: <span class="ex">el hombre bueno</span>, <span class="ex">la casa buena</span>.'],
+     cf:'Italian sono / sei / è and Portuguese sou / é / são are the same verb. Latin: sum / es / est.'},
+   w:[['hola','hello'],['gracias','thank you'],['sí','yes'],['no','no'],['el hombre','the man'],['la mujer','the woman'],['el amigo','the friend'],['la casa','the house'],['bueno','good'],['y','and']],
+   s:[['Hola, soy Ana.','Hello, I am Ana.'],['El hombre es bueno.','The man is good.'],['La mujer y el hombre son amigos.','The woman and the man are friends.'],['La casa es grande.','The house is big.'],['No soy el hombre.','I am not the man.'],['Sí, gracias.','Yes, thank you.']],
+   f:[['La casa ___ grande.','es',['soy','son'],'The house is big.'],['___ mujer','La',['El','Los'],'the woman'],['El hombre y la mujer ___ amigos.','son',['es','somos'],'The man and the woman are friends.']],
+   r:{t:'Hola. Soy Carlos. Soy de Madrid. Mi casa es grande y mi amigo es bueno.', q:[['Where is Carlos from?','Madrid',['His house','A friend’s house']],['His house is…','Big',['Good','Small']]]}},
+  {t:'Verbos en -ar', en:'Regular present tense',
+   p:{h:'Drop -ar, add the ending', l:[
+     '<span class="ex">hablar</span> → <span class="ex">habl<b>o</b></span> I speak · <span class="ex">habl<b>as</b></span> you speak · <span class="ex">habl<b>a</b></span> he/she speaks · <span class="ex">habl<b>amos</b></span> we speak · <span class="ex">habl<b>an</b></span> they speak.',
+     'Every regular -ar verb works the same: trabajar → trabajo, estudiar → estudio, comprar → compro.',
+     'Questions keep the same word order; the voice rises: <span class="ex">¿Hablas español?</span> Written questions open with ¿.'],
+     cf:'Italian parlo / parli / parla and Portuguese falo / fala / falamos follow the same pattern from Latin amō / amās / amat.'},
+   w:[['hablar','to speak'],['trabajar','to work'],['estudiar','to study'],['comprar','to buy'],['necesitar','to need'],['el español','Spanish'],['el agua','the water'],['el pan','the bread'],['mucho','a lot, much'],['hoy','today']],
+   s:[['Hablo español.','I speak Spanish.'],['Hoy trabajo mucho.','Today I work a lot.'],['Necesito agua y pan.','I need water and bread.'],['¿Estudias español?','Do you study Spanish?'],['Compramos pan.','We buy bread.'],['Ella habla con mi amigo.','She speaks with my friend.']],
+   f:[['Yo ___ español.','hablo',['habla','hablas'],'I speak Spanish.'],['¿___ español?','Estudias',['Estudio','Estudiamos'],'Do you study Spanish?'],['Hoy ___ mucho.','trabajo',['trabajas','trabajan'],'Today I work a lot.']],
+   r:{t:'Hoy trabajo mucho. Hablo español con mi amigo Luis. Necesitamos pan y agua. Luis estudia y compra pan.', q:[['Who does the speaker speak Spanish with?','His friend Luis',['His family','A woman']],['What do they need?','Bread and water',['A house','Money']]]}},
+  {t:'Ser y estar', en:'Two verbs for “to be”',
+   p:{h:'Ser is what it is; estar is how or where it is', l:[
+     '<span class="ex">estar</span>: <span class="ex">estoy</span> · <span class="ex">estás</span> · <span class="ex">está</span> · <span class="ex">estamos</span> · <span class="ex">están</span>.',
+     'Location and states take estar: <span class="ex">Estoy en Madrid</span> (I am in Madrid), <span class="ex">Estoy cansado</span> (I am tired). Identity and origin take ser: <span class="ex">Soy de Madrid</span> (I am from Madrid).',
+     'The difference changes meaning: <span class="ex">es bueno</span> = he is a good person; <span class="ex">está bueno</span> = it tastes good.'],
+     cf:'Portuguese has the same split (ser / estar). Italian mostly uses essere for both, and stare only for health: sto bene.'},
+   w:[['estar','to be (state, place)'],['dónde','where'],['aquí','here'],['la ciudad','the city'],['la calle','the street'],['la iglesia','the church'],['cansado','tired'],['bien','well'],['en','in, at'],['cerca','near']],
+   s:[['¿Dónde está la iglesia?','Where is the church?'],['Estoy en la ciudad.','I am in the city.'],['La calle está cerca.','The street is near.'],['Hoy estoy cansado.','Today I am tired.'],['¿Cómo estás? Estoy bien.','How are you? I am well.'],['La casa está aquí.','The house is here.']],
+   f:[['Estoy ___ Madrid.','en',['de','a'],'I am in Madrid.'],['La iglesia ___ cerca.','está',['es','estás'],'The church is near.'],['Soy ___ Madrid.','de',['en','a'],'I am from Madrid.']],
+   r:{t:'Estoy en la ciudad. La iglesia está cerca, en la calle grande. Estoy cansado, pero estoy bien.', q:[['Where is the church?','Near, on the big street',['Far from the city','In the house']],['How does the speaker feel?','Tired but well',['Good and happy','Lost']]]}},
+  {t:'Tener y querer', en:'Having, wanting, family',
+   p:{h:'Two irregular verbs you use constantly', l:[
+     '<span class="ex">tener</span> to have: <span class="ex">tengo</span> · <span class="ex">tienes</span> · <span class="ex">tiene</span> · <span class="ex">tenemos</span> · <span class="ex">tienen</span>.',
+     '<span class="ex">querer</span> to want: <span class="ex">quiero</span> · <span class="ex">quieres</span> · <span class="ex">quiere</span> · <span class="ex">queremos</span> · <span class="ex">quieren</span>. Follow it with an infinitive: <span class="ex">quiero comer</span>.',
+     'Possessives: <span class="ex">mi</span> my · <span class="ex">tu</span> your · <span class="ex">su</span> his/her/their. Plural adds -s: <span class="ex">mis amigos</span>.'],
+     cf:'Italian ho / hai / ha (avere) and Portuguese tenho / tem / temos (ter). The e→ie change (quiero, tienes) is a Spanish signature.'},
+   w:[['tener','to have'],['querer','to want'],['la familia','the family'],['el hermano','the brother'],['la hermana','the sister'],['el padre','the father'],['la madre','the mother'],['el tiempo','the time'],['el dinero','the money'],['también','also']],
+   s:[['Tengo una hermana.','I have a sister.'],['Mi padre quiere comer.','My father wants to eat.'],['No tenemos tiempo.','We do not have time.'],['¿Tienes dinero?','Do you have money?'],['Mi madre también trabaja.','My mother also works.'],['Mi hermano quiere estudiar.','My brother wants to study.']],
+   f:[['___ una hermana.','Tengo',['Tiene','Tienes'],'I have a sister.'],['Mi padre ___ comer.','quiere',['quiero','quieres'],'My father wants to eat.'],['No ___ tiempo.','tenemos',['tengo','tienen'],'We do not have time.']],
+   r:{t:'Tengo una familia grande. Mi hermano trabaja en la ciudad y mi hermana estudia. Mi madre quiere una casa cerca. No tenemos mucho dinero, pero estamos bien.', q:[['Where does the brother work?','In the city',['At home','In the church']],['What does the mother want?','A house nearby',['Money','To study']]]}},
+  {t:'Ir', en:'Going, and the near future',
+   p:{h:'Ir a + infinitive is your first future tense', l:[
+     '<span class="ex">ir</span> to go: <span class="ex">voy</span> · <span class="ex">vas</span> · <span class="ex">va</span> · <span class="ex">vamos</span> · <span class="ex">van</span>.',
+     '<span class="ex">Voy a comer</span> = I am going to eat. Any verb, any person: <span class="ex">vamos a trabajar</span>, <span class="ex">¿vas a estudiar?</span>',
+     '<span class="ex">a + el</span> contracts to <span class="ex">al</span>: voy al mercado. <span class="ex">a la</span> stays: voy a la iglesia.',
+     '<span class="ex">nunca</span> (never) can go before the verb with no extra “no”: <span class="ex">Nunca bebo café</span>.'],
+     cf:'Portuguese vou / vai / vamos is nearly identical but drops the “a”: vou comer. Italian uses vado and the plain present for near-future plans.'},
+   w:[['ir','to go'],['mañana','tomorrow'],['la noche','the night'],['ahora','now'],['siempre','always'],['nunca','never'],['el trabajo','the work, job'],['el mercado','the market'],['comer','to eat'],['beber','to drink']],
+   s:[['Voy al mercado.','I go to the market.'],['Mañana voy a trabajar.','Tomorrow I am going to work.'],['Vamos a comer ahora.','We are going to eat now.'],['Nunca bebo café.','I never drink coffee.'],['Siempre trabajo por la noche.','I always work at night.'],['¿Vas a estudiar mañana?','Are you going to study tomorrow?']],
+   f:[['Voy ___ mercado.','al',['a la','el'],'I go to the market.'],['Mañana ___ a trabajar.','voy',['vas','va'],'Tomorrow I am going to work.'],['___ bebo café.','Nunca',['Siempre','Ahora'],'I never drink coffee.']],
+   r:{t:'Mañana voy al mercado con mi hermana. Vamos a comprar pan y café. Ahora estoy en casa; siempre estudio por la noche.', q:[['Where is the speaker going tomorrow?','To the market',['To work','To the church']],['When does the speaker always study?','At night',['In the morning','Now']]]}}
+ ]}],
+ x:{soy:'I am',eres:'you are',es:'is',somos:'we are',son:'they are',yo:'I',ella:'she',mi:'my',mis:'my (pl.)',de:'from, of',madrid:'Madrid',carlos:'Carlos (a name)',luis:'Luis (a name)',ana:'Ana (a name)',amigos:'friends',una:'a',un:'a',grande:'big',con:'with',hablo:'I speak',hablas:'you speak',habla:'speaks',estudias:'you study',estudia:'studies',estudio:'I study',trabajo:'I work',trabaja:'works',compramos:'we buy',compra:'buys',comprar:'to buy',necesito:'I need',necesitamos:'we need',estoy:'I am',estás:'you are',está:'is',estamos:'we are',cómo:'how',pero:'but',tengo:'I have',tienes:'you have',tiene:'has',tenemos:'we have',quiere:'wants',quiero:'I want',comer:'to eat',voy:'I go',vas:'you go',vamos:'we go',al:'to the',a:'to',café:'coffee',por:'at, during',bebo:'I drink',casa:'home',el:'the',la:'the',los:'the (pl.)',las:'the (pl.)'}
 },
-it: { name:'Italian', native:'Italiano', note:'Standard Italian', lang:'it', color:1,
- units:[
-  {t:'Saluti', en:'Greetings and people',
-   w:[['ciao','hi, bye'],['arrivederci','goodbye'],['per favore','please'],['grazie','thank you'],['sì','yes'],['no','no'],["l'uomo",'the man'],['la donna','the woman'],['il ragazzo','the boy'],['la ragazza','the girl']],
-   s:[['Ciao, sono Marco.','Hi, I am Marco.'],['Grazie, arrivederci.','Thank you, goodbye.'],["La donna e l'uomo.",'The woman and the man.'],['Sì, per favore.','Yes, please.'],['Il ragazzo non è un uomo.','The boy is not a man.']],
-   f:[['___ donna','La',['Il','Lo'],'the woman'],['___ ragazzo','Il',['La','Le'],'the boy'],['Io ___ un uomo.','sono',['è','sei'],'I am a man.']]},
-  {t:'Il cibo', en:'Food and drink',
-   w:[["l'acqua",'water'],['il pane','bread'],['il vino','wine'],['il caffè','coffee'],['la mela','apple'],['il formaggio','cheese'],['mangio','I eat'],['bevo','I drink'],['vorrei','I would like'],['il conto','the check']],
-   s:[['Bevo acqua.','I drink water.'],['Mangio pane e formaggio.','I eat bread and cheese.'],['Vorrei un caffè, per favore.','I would like a coffee, please.'],['Il conto, per favore.','The check, please.'],['Lei mangia una mela.','She eats an apple.']],
-   f:[['Io ___ acqua.','bevo',['beve','bevi'],'I drink water.'],['Lei ___ una mela.','mangia',['mangio','mangi'],'She eats an apple.'],['___ mela','una',['un','uno'],'an apple']]},
-  {t:'In città', en:'Around town',
-   w:[['la casa','house'],['la strada','street'],['la chiesa','church'],['la città','city'],['il treno','train'],['la stazione','station'],["dov'è",'where is',['dove è','dove e']],['vado','I go'],['vicino','near'],['lontano','far']],
-   s:[["Dov'è la stazione?",'Where is the station?'],['Vado in chiesa.','I go to church.'],['La casa è vicina.','The house is near.'],['Il treno è lontano.','The train is far.'],['Abito in città.','I live in the city.']],
-   f:[['___ in città.','Vado',['Va','Vai'],'I go into town.'],['Il treno è ___.','lontano',['lontana','lontani'],'The train is far.'],['La casa è ___.','vicina',['vicino','vicini'],'The house is near.']]},
-  {t:'La famiglia', en:'Family',
-   w:[['la madre','mother'],['il padre','father'],['il fratello','brother'],['la sorella','sister'],["l'amico",'friend'],['mio','my'],['grande','big'],['piccolo','small'],['ho','I have'],['anche','also']],
-   s:[['Ho un fratello.','I have a brother.'],['Mia sorella è piccola.','My sister is small.'],['Mio padre è il mio amico.','My father is my friend.'],['Ho anche una sorella.','I also have a sister.'],['La casa è grande.','The house is big.']],
-   f:[['Mia sorella è ___.','piccola',['piccolo','piccoli'],'My sister is small.'],['___ un fratello.','Ho',['Ha','Hai'],'I have a brother.'],['___ sorella','Mia',['Mio','Miei'],'my sister']]},
-  {t:'In viaggio', en:'Travel',
-   w:[['oggi','today'],['domani','tomorrow'],['la notte','night'],['il biglietto','ticket'],["l'aeroporto",'airport'],['la spiaggia','beach'],['il mare','sea'],['ho bisogno di','I need',['ho bisogno']],['viaggiare','to travel'],['la valigia','suitcase']],
-   s:[['Oggi vado al mare.','Today I go to the sea.'],['Ho bisogno di un biglietto.','I need a ticket.'],["Domani vado all'aeroporto.",'Tomorrow I go to the airport.'],['Voglio viaggiare.','I want to travel.'],['La spiaggia è bella.','The beach is beautiful.']],
-   f:[['Vado ___ mare.','al',['alla','il'],'I go to the sea.'],['Voglio ___.','viaggiare',['viaggio','viaggia'],'I want to travel.'],['Buona ___.','notte',['notti','mattina'],'Good night.']]}
- ],
- x:{sono:'I am',marco:'Marco (a name)',e:'and',non:'not',è:'is',un:'a',uno:'a',una:'a, an',lei:'she',mangia:'eats',in:'in, to',abito:'I live',vicina:'near',mia:'my',piccola:'small',al:'to the',"all'aeroporto":'to the airport',voglio:'I want',bella:'beautiful',il:'the',la:'the',io:'I',buona:'good',bisogno:'need',di:'of'}
+
+it: { name:'Italian', native:'Italiano', note:'Standard Italian', lang:'it', levels:[{units:[
+  {t:'Essere', en:'To be, and articles',
+   p:{h:'Articles change with the next sound', l:[
+     'Masculine <span class="ex">il</span> (il pane), feminine <span class="ex">la</span> (la casa). Before a vowel both become <span class="ex">l’</span>: l’uomo, l’acqua. Masculine words starting with s+consonant or z take <span class="ex">lo</span>: lo studente.',
+     '<span class="ex">essere</span> to be: <span class="ex">sono</span> I am · <span class="ex">sei</span> you are · <span class="ex">è</span> he/she/it is · <span class="ex">siamo</span> we are · <span class="ex">siete</span> you all are · <span class="ex">sono</span> they are.',
+     '“I am” and “they are” are both <span class="ex">sono</span>; context tells them apart.',
+     'The accent on <span class="ex">è</span> (is) matters: <span class="ex">e</span> without it means “and”.'],
+     cf:'Spanish soy / eres / es, Portuguese sou / é / são. Latin sum / es / est.'},
+   w:[['ciao','hi, bye'],['grazie','thank you'],['sì','yes'],['no','no'],["l'uomo",'the man'],['la donna','the woman'],["l'amico",'the friend'],['la casa','the house'],['buono','good'],['e','and']],
+   s:[['Ciao, sono Marco.','Hi, I am Marco.'],["L'uomo è buono.",'The man is good.'],["La donna e l'uomo sono amici.",'The woman and the man are friends.'],['La casa è grande.','The house is big.'],["Non sono l'uomo.",'I am not the man.'],['Sì, grazie.','Yes, thank you.']],
+   f:[['La casa ___ grande.','è',['sono','sei'],'The house is big.'],["___ uomo","L'",['Il','La'],'the man'],["La donna e l'uomo ___ amici.",'sono',['è','siamo'],'The woman and the man are friends.']],
+   r:{t:'Ciao. Sono Marco. Sono di Roma. La mia casa è grande e il mio amico è buono.', q:[['Where is Marco from?','Rome',['Milan','A big house']],['His friend is…','Good',['Big','A woman']]]}},
+  {t:'Verbi in -are', en:'Regular present tense',
+   p:{h:'Drop -are, add the ending', l:[
+     '<span class="ex">parlare</span> → <span class="ex">parl<b>o</b></span> I speak · <span class="ex">parl<b>i</b></span> you speak · <span class="ex">parl<b>a</b></span> he/she speaks · <span class="ex">parl<b>iamo</b></span> we speak · <span class="ex">parl<b>ate</b></span> you all speak · <span class="ex">parl<b>ano</b></span> they speak.',
+     'Watch “you”: Italian uses <span class="ex">-i</span> (parli) where Spanish uses -as (hablas).',
+     'Questions keep the same order, voice rising: <span class="ex">Parli italiano?</span>'],
+     cf:'Spanish hablo / hablas / habla, Portuguese falo / fala. All from Latin amō / amās / amat.'},
+   w:[['parlare','to speak'],['lavorare','to work'],['studiare','to study'],['comprare','to buy'],['mangiare','to eat'],["l'italiano",'Italian'],["l'acqua",'the water'],['il pane','the bread'],['molto','a lot, much'],['oggi','today']],
+   s:[['Parlo italiano.','I speak Italian.'],['Oggi lavoro molto.','Today I work a lot.'],['Mangiamo pane.','We eat bread.'],['Parli italiano?','Do you speak Italian?'],["Compro l'acqua.",'I buy the water.'],['Lei studia con il mio amico.','She studies with my friend.']],
+   f:[['Io ___ italiano.','parlo',['parla','parli'],'I speak Italian.'],['___ italiano?','Parli',['Parlo','Parliamo'],'Do you speak Italian?'],['Oggi ___ molto.','lavoro',['lavori','lavorano'],'Today I work a lot.']],
+   r:{t:'Oggi lavoro molto. Parlo italiano con il mio amico Luca. Mangiamo pane e beviamo acqua. Luca studia e compra il pane.', q:[['Who does the speaker speak Italian with?','His friend Luca',['His family','A woman']],['What do they eat?','Bread',['Water','Pasta']]]}},
+  {t:"C'è e stare", en:'There is, where is, how are you',
+   p:{h:'Italian keeps essere for location', l:[
+     '<span class="ex">c’è</span> = there is · <span class="ex">ci sono</span> = there are · <span class="ex">dov’è</span> = where is.',
+     'Location uses essere: <span class="ex">La chiesa è vicina</span>, <span class="ex">Sono in città</span>. Health uses <span class="ex">stare</span>: <span class="ex">Come stai? Sto bene.</span>',
+     'Double consonants are real: <span class="ex">sono</span> (I am) vs <span class="ex">sonno</span> (sleep), <span class="ex">casa</span> vs <span class="ex">cassa</span> (crate). Hold the consonant longer.'],
+     cf:'Spanish and Portuguese use estar for location (está cerca). Italian does not; stare is for states and greetings.'},
+   w:[["dov'è",'where is',['dove è','dove e']],["c'è",'there is',['ce']],['qui','here'],['la città','the city'],['la strada','the street'],['la chiesa','the church'],['stanco','tired'],['bene','well'],['in','in'],['vicino','near']],
+   s:[["Dov'è la chiesa?",'Where is the church?'],['Sono in città.','I am in the city.'],["C'è una chiesa qui.",'There is a church here.'],['La strada è vicina.','The street is near.'],['Come stai? Sto bene.','How are you? I am well.'],['Oggi sono stanco.','Today I am tired.']],
+   f:[['Sono ___ città.','in',['a','di'],'I am in the city.'],["___ una chiesa qui.","C'è",['Ci sono','È'],'There is a church here.'],['Come ___? Sto bene.','stai',['sto','stiamo'],'How are you? I am well.']],
+   r:{t:"Sono in città. C'è una chiesa vicina, in una strada grande. Sono stanco, ma sto bene.", q:[['Where is there a church?','Nearby, on a big street',['Far away','In the house']],['How does the speaker feel?','Tired but well',['Good and happy','Lost']]]}},
+  {t:'Avere e volere', en:'Having, wanting, family',
+   p:{h:'The silent h, and articles with possessives', l:[
+     '<span class="ex">avere</span> to have: <span class="ex">ho</span> · <span class="ex">hai</span> · <span class="ex">ha</span> · <span class="ex">abbiamo</span> · <span class="ex">avete</span> · <span class="ex">hanno</span>. The h is silent; it only distinguishes ho from o (or).',
+     '<span class="ex">volere</span> to want: <span class="ex">voglio</span> · <span class="ex">vuoi</span> · <span class="ex">vuole</span> · <span class="ex">vogliamo</span> · <span class="ex">vogliono</span>. Follow with an infinitive: <span class="ex">voglio mangiare</span>.',
+     'Possessives take an article: <span class="ex">il mio amico</span>, <span class="ex">la mia casa</span>. The exception is singular family: <span class="ex">mio padre</span>, <span class="ex">mia sorella</span>, no article.'],
+     cf:'Spanish uses tener (tengo), Portuguese ter (tenho); Italian kept Latin habeō → ho.'},
+   w:[['avere','to have'],['volere','to want'],['la famiglia','the family'],['il fratello','the brother'],['la sorella','the sister'],['il padre','the father'],['la madre','the mother'],['il tempo','the time'],['i soldi','the money'],['anche','also']],
+   s:[['Ho una sorella.','I have a sister.'],['Mio padre vuole mangiare.','My father wants to eat.'],['Non abbiamo tempo.','We do not have time.'],['Hai i soldi?','Do you have the money?'],['Anche mia madre lavora.','My mother also works.'],['Mio fratello vuole studiare.','My brother wants to study.']],
+   f:[['___ una sorella.','Ho',['Ha','Hai'],'I have a sister.'],['Mio padre ___ mangiare.','vuole',['voglio','vuoi'],'My father wants to eat.'],['Non ___ tempo.','abbiamo',['ho','hanno'],'We do not have time.']],
+   r:{t:'Ho una famiglia grande. Mio fratello lavora in città e mia sorella studia. Mia madre vuole una casa vicina. Non abbiamo molti soldi, ma stiamo bene.', q:[['Where does the brother work?','In the city',['At home','In the church']],['What does the mother want?','A house nearby',['Money','To study']]]}},
+  {t:'Andare', en:'Going, and prepositions with articles',
+   p:{h:'Preposition + article fuse into one word', l:[
+     '<span class="ex">andare</span> to go: <span class="ex">vado</span> · <span class="ex">vai</span> · <span class="ex">va</span> · <span class="ex">andiamo</span> · <span class="ex">andate</span> · <span class="ex">vanno</span>.',
+     '<span class="ex">a + il = al</span> (al mercato), <span class="ex">a + la = alla</span> (alla chiesa), <span class="ex">in + il = nel</span>, <span class="ex">di + il = del</span>.',
+     'Near future is just the present plus a time word: <span class="ex">Domani vado al mercato</span>. Going to do something: <span class="ex">vado a mangiare</span>.',
+     '“Never” needs two words: <span class="ex">non … mai</span>. <span class="ex">Non bevo mai caffè.</span>'],
+     cf:'Spanish voy a comer and Portuguese vou comer. Spanish nunca and Portuguese nunca work alone; Italian mai needs non.'},
+   w:[['andare','to go'],['domani','tomorrow'],['la notte','the night'],['adesso','now'],['sempre','always'],['mai','never (with non)'],['il lavoro','the work, job'],['il mercato','the market'],['bere','to drink'],['il caffè','the coffee']],
+   s:[['Vado al mercato.','I go to the market.'],['Domani vado a lavorare.','Tomorrow I am going to work.'],['Adesso andiamo a mangiare.','Now we are going to eat.'],['Non bevo mai caffè.','I never drink coffee.'],['Lavoro sempre di notte.','I always work at night.'],['Vai a studiare domani?','Are you going to study tomorrow?']],
+   f:[['Vado ___ mercato.','al',['alla','il'],'I go to the market.'],['Domani ___ a lavorare.','vado',['vai','va'],'Tomorrow I am going to work.'],['Non bevo ___ caffè.','mai',['sempre','adesso'],'I never drink coffee.']],
+   r:{t:'Domani vado al mercato con mia sorella. Compriamo pane e caffè. Adesso sono a casa; studio sempre di notte.', q:[['Where is the speaker going tomorrow?','To the market',['To work','To the church']],['When does the speaker always study?','At night',['In the morning','Now']]]}}
+ ]}],
+ x:{sono:'I am / they are',sei:'you are',è:'is',siamo:'we are',io:'I',lei:'she',non:'not',mio:'my',mia:'my',di:'from, of',roma:'Rome',marco:'Marco (a name)',luca:'Luca (a name)',amici:'friends',una:'a',un:'a',grande:'big',con:'with',parlo:'I speak',parli:'you speak',parla:'speaks',lavoro:'I work',lavora:'works',studia:'studies',studio:'I study',mangiamo:'we eat',compro:'I buy',compra:'buys',compriamo:'we buy',beviamo:'we drink',bevo:'I drink',come:'how',stai:'you are (health)',sto:'I am (health)',stiamo:'we are (health)',ma:'but',vicina:'near',ho:'I have',hai:'you have',ha:'has',abbiamo:'we have',vuole:'wants',voglio:'I want',molti:'many',vado:'I go',vai:'you go',andiamo:'we go',al:'to the',a:'to, at',casa:'home',notte:'night',il:'the',la:'the',i:'the (pl.)',lo:'the',le:'the (pl.)'}
 },
-pt: { name:'Portuguese', native:'Português', note:'Brazilian Portuguese', lang:'pt-BR', color:2,
- units:[
-  {t:'Saudações', en:'Greetings and people',
-   w:[['olá','hello'],['tchau','bye'],['por favor','please'],['obrigado','thank you',['obrigada']],['sim','yes'],['não','no'],['o homem','the man'],['a mulher','the woman'],['o menino','the boy'],['a menina','the girl']],
-   s:[['Olá, sou a Ana.','Hello, I am Ana.'],['Obrigado, tchau.','Thank you, bye.'],['A mulher e o homem.','The woman and the man.'],['Sim, por favor.','Yes, please.'],['O menino não é um homem.','The boy is not a man.']],
-   f:[['___ mulher','A',['O','Os'],'the woman'],['___ menino','O',['A','As'],'the boy'],['Eu ___ um homem.','sou',['é','és'],'I am a man.']]},
-  {t:'Comida', en:'Food and drink',
-   w:[['a água','water'],['o pão','bread'],['o vinho','wine'],['o café','coffee'],['a maçã','apple'],['o queijo','cheese'],['como','I eat'],['bebo','I drink'],['quero','I want'],['a conta','the check']],
-   s:[['Bebo água.','I drink water.'],['Como pão com queijo.','I eat bread with cheese.'],['Quero um café, por favor.','I want a coffee, please.'],['A conta, por favor.','The check, please.'],['Ela come uma maçã.','She eats an apple.']],
-   f:[['Eu ___ água.','bebo',['bebe','bebes'],'I drink water.'],['Ela ___ uma maçã.','come',['como','comes'],'She eats an apple.'],['___ maçã','uma',['um','uns'],'an apple']]},
-  {t:'Na cidade', en:'Around town',
-   w:[['a casa','house'],['a rua','street'],['a igreja','church'],['a cidade','city'],['o trem','train'],['a estação','station'],['onde fica','where is'],['vou','I go'],['perto','near'],['longe','far']],
-   s:[['Onde fica a estação?','Where is the station?'],['Vou à igreja.','I go to the church.'],['A casa fica perto.','The house is near.'],['O trem está longe.','The train is far.'],['Moro na cidade.','I live in the city.']],
-   f:[['___ à cidade.','Vou',['Vai','Vais'],'I go to the city.'],['Moro ___ cidade.','na',['no','nas'],'I live in the city.'],['___ fica a estação?','Onde',['Quando','Quem'],'Where is the station?']]},
-  {t:'A família', en:'Family',
-   w:[['a mãe','mother'],['o pai','father'],['o irmão','brother'],['a irmã','sister'],['o amigo','friend'],['meu','my'],['grande','big'],['pequeno','small'],['tenho','I have'],['também','also']],
-   s:[['Tenho um irmão.','I have a brother.'],['Minha irmã é pequena.','My sister is small.'],['Meu pai é meu amigo.','My father is my friend.'],['Também tenho uma irmã.','I also have a sister.'],['A casa é grande.','The house is big.']],
-   f:[['Minha irmã é ___.','pequena',['pequeno','pequenos'],'My sister is small.'],['___ um irmão.','Tenho',['Tem','Tens'],'I have a brother.'],['___ irmã','Minha',['Meu','Meus'],'my sister']]},
-  {t:'Viagem', en:'Travel',
-   w:[['hoje','today'],['amanhã','tomorrow'],['a noite','night'],['a passagem','ticket',['o bilhete','bilhete']],['o aeroporto','airport'],['a praia','beach'],['o mar','sea'],['preciso de','I need',['preciso']],['viajar','to travel'],['a mala','suitcase']],
-   s:[['Hoje vou à praia.','Today I go to the beach.'],['Preciso de uma passagem.','I need a ticket.'],['Amanhã vou ao aeroporto.','Tomorrow I go to the airport.'],['Quero viajar.','I want to travel.'],['O mar é bonito.','The sea is beautiful.']],
-   f:[['Vou ___ aeroporto.','ao',['à','o'],'I go to the airport.'],['Quero ___.','viajar',['viajo','viaja'],'I want to travel.'],['Boa ___.','noite',['noites','tarde'],'Good night.']]}
- ],
- x:{sou:'I am',ana:'Ana (a name)',e:'and',é:'is',um:'a',uma:'a, an',com:'with',ela:'she',come:'eats',à:'to the',ao:'to the',fica:'is (located)',está:'is',moro:'I live',na:'in the',minha:'my',pequena:'small',bonito:'beautiful',a:'the',o:'the',eu:'I',boa:'good',de:'of',onde:'where'}
+
+pt: { name:'Portuguese', native:'Português', note:'Brazilian Portuguese', lang:'pt-BR', levels:[{units:[
+  {t:'Ser', en:'To be, and articles',
+   p:{h:'Short articles, nasal vowels', l:[
+     'Masculine <span class="ex">o</span> (o homem), feminine <span class="ex">a</span> (a mulher); plural <span class="ex">os / as</span>.',
+     '<span class="ex">ser</span> to be: <span class="ex">sou</span> I am · <span class="ex">é</span> you are / he, she, it is · <span class="ex">somos</span> we are · <span class="ex">são</span> they are. Brazilians say “you” with <span class="ex">você</span> + the he/she form: <span class="ex">você é</span>.',
+     'The tilde marks a nasal vowel, said through the nose: <span class="ex">não</span>, <span class="ex">são</span>, <span class="ex">irmã</span>. So does a final -m: <span class="ex">bom</span>, <span class="ex">homem</span>.',
+     'Men say <span class="ex">obrigado</span>, women say <span class="ex">obrigada</span>.'],
+     cf:'Spanish soy / eres / es, Italian sono / sei / è. Latin sum / es / est.'},
+   w:[['olá','hello'],['obrigado','thank you',['obrigada']],['sim','yes'],['não','no, not'],['o homem','the man'],['a mulher','the woman'],['o amigo','the friend'],['a casa','the house'],['bom','good'],['e','and']],
+   s:[['Olá, sou a Ana.','Hello, I am Ana.'],['O homem é bom.','The man is good.'],['A mulher e o homem são amigos.','The woman and the man are friends.'],['A casa é grande.','The house is big.'],['Não sou o homem.','I am not the man.'],['Sim, obrigado.','Yes, thank you.']],
+   f:[['A casa ___ grande.','é',['sou','são'],'The house is big.'],['___ mulher','A',['O','Os'],'the woman'],['A mulher e o homem ___ amigos.','são',['é','somos'],'The woman and the man are friends.']],
+   r:{t:'Olá. Sou o Pedro. Sou de São Paulo. A minha casa é grande e o meu amigo é bom.', q:[['Where is Pedro from?','São Paulo',['Lisbon','A big house']],['His friend is…','Good',['Big','A woman']]]}},
+  {t:'Verbos em -ar', en:'Regular present tense',
+   p:{h:'Four forms cover Brazilian speech', l:[
+     '<span class="ex">falar</span> → <span class="ex">fal<b>o</b></span> I speak · <span class="ex">fal<b>a</b></span> you / he / she speak(s) · <span class="ex">fal<b>amos</b></span> we speak · <span class="ex">fal<b>am</b></span> they speak.',
+     'Because “you” is <span class="ex">você</span>, it takes the same form as he/she: <span class="ex">Você fala português?</span>',
+     '<span class="ex">precisar de</span> = to need: <span class="ex">Preciso de água.</span> The “de” is required.'],
+     cf:'Spanish hablo / hablas / habla has a separate “you” form; Portuguese merges it with he/she in everyday speech.'},
+   w:[['falar','to speak'],['trabalhar','to work'],['estudar','to study'],['comprar','to buy'],['precisar de','to need',['precisar']],['o português','Portuguese'],['a água','the water'],['o pão','the bread'],['muito','a lot, much'],['hoje','today']],
+   s:[['Falo português.','I speak Portuguese.'],['Hoje trabalho muito.','Today I work a lot.'],['Preciso de água e pão.','I need water and bread.'],['Você fala português?','Do you speak Portuguese?'],['Compramos pão.','We buy bread.'],['Ela estuda com o meu amigo.','She studies with my friend.']],
+   f:[['Eu ___ português.','falo',['fala','falamos'],'I speak Portuguese.'],['Você ___ português?','fala',['falo','falam'],'Do you speak Portuguese?'],['Preciso ___ água.','de',['a','em'],'I need water.']],
+   r:{t:'Hoje trabalho muito. Falo português com o meu amigo João. Precisamos de pão e água. O João estuda e compra pão.', q:[['Who does the speaker speak Portuguese with?','His friend João',['His family','A woman']],['What do they need?','Bread and water',['A house','Money']]]}},
+  {t:'Estar e ficar', en:'States and locations',
+   p:{h:'Three verbs for “to be”', l:[
+     '<span class="ex">estar</span> for states and temporary location: <span class="ex">estou</span> · <span class="ex">está</span> · <span class="ex">estamos</span> · <span class="ex">estão</span>. <span class="ex">Estou cansado. Estou na cidade.</span>',
+     '<span class="ex">ficar</span> for where something is located: <span class="ex">A igreja fica perto.</span> <span class="ex">Onde fica…?</span> is the normal way to ask where a place is.',
+     '<span class="ex">em + o = no</span>, <span class="ex">em + a = na</span>: na cidade, no mercado. <span class="ex">de + o = do</span>, <span class="ex">de + a = da</span>.',
+     'Greeting: <span class="ex">Tudo bem?</span> Answer: <span class="ex">Tudo bem.</span>'],
+     cf:'Spanish uses estar for both states and location (está cerca); Italian uses essere. Ficar is a Portuguese habit worth copying early.'},
+   w:[['estar','to be (state)'],['ficar','to be located'],['onde','where'],['aqui','here'],['a cidade','the city'],['a rua','the street'],['a igreja','the church'],['cansado','tired'],['bem','well'],['perto','near']],
+   s:[['Onde fica a igreja?','Where is the church?'],['Estou na cidade.','I am in the city.'],['A rua fica perto.','The street is near.'],['Hoje estou cansado.','Today I am tired.'],['Tudo bem? Estou bem.','How are you? I am well.'],['A casa fica aqui.','The house is here.']],
+   f:[['Estou ___ cidade.','na',['em','no'],'I am in the city.'],['A igreja ___ perto.','fica',['é','estou'],'The church is near.'],['Sou ___ São Paulo.','de',['em','na'],'I am from São Paulo.']],
+   r:{t:'Estou na cidade. A igreja fica perto, na rua grande. Estou cansado, mas estou bem.', q:[['Where is the church?','Near, on the big street',['Far from the city','In the house']],['How does the speaker feel?','Tired but well',['Good and happy','Lost']]]}},
+  {t:'Ter e querer', en:'Having, wanting, family',
+   p:{h:'Ter, querer, and possessives with articles', l:[
+     '<span class="ex">ter</span> to have: <span class="ex">tenho</span> · <span class="ex">tem</span> · <span class="ex">temos</span> · <span class="ex">têm</span> (they; same sound, written with ^).',
+     '<span class="ex">querer</span> to want: <span class="ex">quero</span> · <span class="ex">quer</span> · <span class="ex">queremos</span> · <span class="ex">querem</span>. Follow with an infinitive: <span class="ex">quero comer</span>.',
+     'Possessives agree and usually take the article: <span class="ex">o meu amigo</span>, <span class="ex">a minha casa</span>. Brazilians often drop the article; both are correct.'],
+     cf:'Spanish tengo / tienes / tiene (tener); Italian ho / hai / ha. Portuguese keeps the article with possessives like Italian, unlike Spanish.'},
+   w:[['ter','to have'],['querer','to want'],['a família','the family'],['o irmão','the brother'],['a irmã','the sister'],['o pai','the father'],['a mãe','the mother'],['o tempo','the time'],['o dinheiro','the money'],['também','also']],
+   s:[['Tenho uma irmã.','I have a sister.'],['O meu pai quer comer.','My father wants to eat.'],['Não temos tempo.','We do not have time.'],['Você tem dinheiro?','Do you have money?'],['A minha mãe também trabalha.','My mother also works.'],['O meu irmão quer estudar.','My brother wants to study.']],
+   f:[['___ uma irmã.','Tenho',['Tem','Temos'],'I have a sister.'],['O meu pai ___ comer.','quer',['quero','queremos'],'My father wants to eat.'],['Não ___ tempo.','temos',['tenho','têm'],'We do not have time.']],
+   r:{t:'Tenho uma família grande. O meu irmão trabalha na cidade e a minha irmã estuda. A minha mãe quer uma casa perto. Não temos muito dinheiro, mas estamos bem.', q:[['Where does the brother work?','In the city',['At home','In the church']],['What does the mother want?','A house nearby',['Money','To study']]]}},
+  {t:'Ir', en:'Going, and the near future',
+   p:{h:'Ir + infinitive, no “a” needed', l:[
+     '<span class="ex">ir</span> to go: <span class="ex">vou</span> · <span class="ex">vai</span> · <span class="ex">vamos</span> · <span class="ex">vão</span>.',
+     '<span class="ex">Vou comer</span> = I am going to eat. Spanish needs “a” (voy a comer); Portuguese does not.',
+     '<span class="ex">a + o = ao</span> (ao mercado), <span class="ex">a + a = à</span> (à igreja, à noite). The grave accent on à marks the contraction.',
+     '<span class="ex">nunca</span> works alone before the verb: <span class="ex">Nunca bebo café.</span>'],
+     cf:'Spanish voy / vas / va / vamos / van is the same verb; Italian vado / vai / va.'},
+   w:[['ir','to go'],['amanhã','tomorrow'],['a noite','the night'],['agora','now'],['sempre','always'],['nunca','never'],['o trabalho','the work, job'],['o mercado','the market'],['comer','to eat'],['beber','to drink']],
+   s:[['Vou ao mercado.','I go to the market.'],['Amanhã vou trabalhar.','Tomorrow I am going to work.'],['Vamos comer agora.','We are going to eat now.'],['Nunca bebo café.','I never drink coffee.'],['Sempre trabalho à noite.','I always work at night.'],['Você vai estudar amanhã?','Are you going to study tomorrow?']],
+   f:[['Vou ___ mercado.','ao',['à','o'],'I go to the market.'],['Amanhã ___ trabalhar.','vou',['vai','vamos'],'Tomorrow I am going to work.'],['___ bebo café.','Nunca',['Sempre','Agora'],'I never drink coffee.']],
+   r:{t:'Amanhã vou ao mercado com a minha irmã. Vamos comprar pão e café. Agora estou em casa; sempre estudo à noite.', q:[['Where is the speaker going tomorrow?','To the market',['To work','To the church']],['When does the speaker always study?','At night',['In the morning','Now']]]}}
+ ]}],
+ x:{sou:'I am',é:'is / you are',somos:'we are',são:'they are',eu:'I',ela:'she',você:'you',meu:'my',minha:'my',de:'from, of',pedro:'Pedro (a name)',joão:'João (a name)',ana:'Ana (a name)',amigos:'friends',uma:'a',um:'a',grande:'big',com:'with',falo:'I speak',fala:'speaks / you speak',trabalho:'I work',trabalha:'works',estuda:'studies',estudo:'I study',compramos:'we buy',compra:'buys',comprar:'to buy',preciso:'I need',precisamos:'we need',estou:'I am',está:'is',estamos:'we are',fica:'is located',tudo:'everything',mas:'but',tenho:'I have',tem:'has / you have',temos:'we have',têm:'they have',quer:'wants',quero:'I want',comer:'to eat',vou:'I go',vai:'you go / goes',vamos:'we go',ao:'to the',à:'to the, at',em:'in',na:'in the',no:'in the',café:'coffee',bebo:'I drink',casa:'home','são paulo':'São Paulo',paulo:'Paulo',o:'the',a:'the',os:'the (pl.)',as:'the (pl.)'}
 }
 };
 const ORDER = ['la','es','it','pt'];
-const LEVEL = 1;
-const LESSONS = [['Words I','Introduces 5 words'],['Words II','Introduces 5 more words'],['Sentences','Builds sentences with the unit'],['Unit test','Mixed recall, mostly typed']];
+const LESSONS = [['Words I','Pattern note, then 5 words'],['Words II','5 more words'],['Sentences','Build, then produce from scratch'],['Unit test','Typed recall, reading, free translation']];
 const SPEECH = {la:'it-IT',es:'es-ES',it:'it-IT',pt:'pt-BR'};
-const ACCENTS = {la:['ā','ē','ī','ō','ū'],es:['á','é','í','ó','ú','ñ','ü','¿','¡'],it:['à','è','é','ì','ò','ù'],pt:['á','â','ã','à','ç','é','ê','í','ó','ô','õ','ú']};
+const ACCENTS = {la:['ā','ē','ī','ō','ū'],es:['á','é','í','ó','ú','ñ','ü','¿','¡'],it:['à','è','é','ì','ò','ù',"'"],pt:['á','â','ã','à','ç','é','ê','í','ó','ô','õ','ú']};
 const DAY = 864e5;
-const INTERVALS = [0, 1, 3, 7, 16, 35, 90]; // days per review box
+const INTERVALS = [0, 1, 3, 7, 16, 35, 90]; // days per box
+const WEAK_CAP = 2;     // recognition answers can't push an item past this box
 const REVIEW_CAP = 20;
+const SEC_PER_ITEM = 22;
 
 /* Helpers */
 const $ = s => document.querySelector(s);
@@ -331,6 +475,7 @@ const stripArt = s => s.replace(/^l'/,'').replace(ART,'');
 const tokens = s => s.replace(PUNCT,'').split(/\s+/).filter(Boolean);
 const dstr = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const today = () => dstr(new Date());
+const mins = n => `~${Math.max(1, Math.round(n*SEC_PER_ITEM/60))} min`;
 function inTime(ms){
   if (ms <= 0) return 'now';
   const m = Math.round(ms/60e3); if (m < 60) return `${m} min`;
@@ -340,12 +485,13 @@ function inTime(ms){
 
 /* Prepare content */
 for (const code of ORDER) {
-  const C = COURSES[code]; C.code = code;
-  C.units.forEach((U,ui) => {
-    U.words = U.w.map(a => ({t:a[0],en:a[1],alt:a[2]||[],u:ui,key:code+'|w|'+a[0],kind:'w'}));
-    U.sents = U.s.map(a => ({t:a[0],en:a[1],u:ui,key:code+'|s|'+a[0],kind:'s'}));
-    U.fills = U.f.map(a => ({t:a[0],ans:a[1],dis:a[2],en:a[3],u:ui,key:code+'|f|'+a[0],kind:'f'}));
-  });
+  const C = COURSES[code]; C.code = code; C.units = [];
+  C.levels.forEach((Lv, li) => Lv.units.forEach((U, ui) => {
+    U.lv = li; U.ui = ui; U.index = C.units.length; C.units.push(U);
+    U.words = U.w.map(a => ({t:a[0],en:a[1],alt:a[2]||[],u:U.index,key:code+'|w|'+a[0],kind:'w'}));
+    U.sents = U.s.map(a => ({t:a[0],en:a[1],u:U.index,key:code+'|s|'+a[0],kind:'s'}));
+    U.fills = U.f.map(a => ({t:a[0],ans:a[1],dis:a[2],en:a[3],u:U.index,key:code+'|f|'+a[0],kind:'f'}));
+  }));
   C.allWords = C.units.flatMap(u=>u.words);
   C.allSents = C.units.flatMap(u=>u.sents);
   C.allFills = C.units.flatMap(u=>u.fills);
@@ -365,20 +511,26 @@ const I = {
   spk:'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.5 9h4l5-4.2v14.4l-5-4.2h-4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.6 6a8.6 8.6 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
 };
 
-/* State: lessons done + one spaced-repetition record per item {b: box 0-6, due: ms, d: last day graded} */
-const KEY = 'tessera.v2';
-const fresh = () => ({v:2,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},audio:true,updatedAt:0});
+/* State. items: one record per word/sentence/fill {b: box 0-6, due: ms, d: last day graded}. log: review accuracy per day. */
+const KEY = 'tessera.v3';
+const fresh = () => ({v:3,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},log:{},audio:true,updatedAt:0});
 function migrate(s){
   const f = fresh(); s = Object.assign(f, s||{});
-  for (const c of ORDER) s.done[c] = s.done[c]||{};
+  for (const c of ORDER){
+    const d = s.done[c] || {}, nd = {};
+    for (const k in d) nd[/^\d+-\d+$/.test(k) ? '0-'+k : k] = 1;
+    s.done[c] = nd;
+  }
   for (const k in s.items){ const r = s.items[k]; if (r && r.b === undefined){ s.items[k] = {b:Math.min(2,r.s||0), due:Date.now(), d:''}; } }
+  s.log = s.log || {};
   return s;
 }
 function loadLocal(){
-  try { const r = localStorage.getItem(KEY) || localStorage.getItem('tessera.v1'); return r ? JSON.parse(r) : null; } catch(e){ return null; }
+  try { const r = localStorage.getItem(KEY) || localStorage.getItem('tessera.v2') || localStorage.getItem('tessera.v1'); return r ? JSON.parse(r) : null; } catch(e){ return null; }
 }
 let S = migrate(loadLocal());
-let L = null, screen = 'home', syncMode = 'local', dbRef = null, writing = false, pending = false, pushTimer = null;
+let L = null, screen = 'home', syncMode = 'local', dbRef = null, writing = false, pending = false, pushTimer = null, sampleNS = null;
+const viewLevel = {};
 
 function save(now){
   S.updatedAt = Date.now();
@@ -390,7 +542,7 @@ async function pushRemote(){
   if (!dbRef) return;
   if (writing){ pending = true; return; }
   writing = true;
-  try { await dbRef.set({state: S, v: 2}); }
+  try { await dbRef.set({state: S, v: 3}); }
   catch(e){ if (e && e.code === 'invalid_argument'){ dbRef = null; syncMode = 'local'; } }
   writing = false;
   if (pending){ pending = false; pushRemote(); }
@@ -398,6 +550,7 @@ async function pushRemote(){
 async function initRemote(){
   try {
     const c = window.claude; if (!c || !c.use) return;
+    c.use('sample').then(ns => { sampleNS = (typeof ns === 'function') ? ns : null; }).catch(() => {});
     const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
     if (!db || !user) return;
     const id = await user.id(); if (!id) return;
@@ -415,15 +568,17 @@ async function initRemote(){
   } catch(e) { dbRef = null; syncMode = 'local'; }
 }
 
-/* Spaced repetition */
+/* Spaced repetition. A correct typed/built answer moves an item up one box (once per day); a correct recognition answer only up to box 2; a miss drops it to box 0 and brings it back in 10 minutes. */
 const rec = it => S.items[it.key];
 const seen = it => !!rec(it);
-function grade(it, ok){
+function grade(it, ok, strong){
+  if (!it) return;
   const now = Date.now(), t = today();
   const r = S.items[it.key] || {b:0, due:0, d:''};
   if (ok){
-    if (r.d !== t){ r.b = Math.min(6, r.b + 1); r.due = now + INTERVALS[r.b]*DAY; }
-    else if (r.b === 0){ r.b = 1; r.due = now + DAY; }
+    if (r.d !== t && r.b < (strong ? 6 : WEAK_CAP)) r.b++;
+    else if (r.b === 0) r.b = 1;
+    r.due = now + INTERVALS[r.b]*DAY;
   } else { r.b = 0; r.due = now + 10*60e3; }
   r.d = t;
   S.items[it.key] = r;
@@ -432,6 +587,24 @@ const dueItems = code => COURSES[code].all.filter(it => { const r = rec(it); ret
 const nextDue = code => { const ds = COURSES[code].all.map(rec).filter(Boolean).map(r => r.due); return ds.length ? Math.min(...ds) : null; };
 const learned = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 1; }).length;
 const solid = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 4; }).length;
+function retention7(){
+  let ok = 0, n = 0; const cut = Date.now() - 7*DAY;
+  for (const d in S.log){ const [y,m,dd] = d.split('-').map(Number); if (new Date(y,m-1,dd).getTime() >= cut){ ok += S.log[d].ok; n += S.log[d].n; } }
+  return n >= 10 ? Math.round(ok/n*100) : null;
+}
+function curLevel(code){
+  const C = COURSES[code];
+  for (let li = 0; li < C.levels.length; li++){
+    const U = C.levels[li].units;
+    if (U.some((u,ui) => [0,1,2,3].some(l => !S.done[code][`${li}-${ui}-${l}`]))) return li;
+  }
+  return C.levels.length - 1;
+}
+function nextLesson(code, li){
+  const U = COURSES[code].levels[li].units;
+  for (let ui = 0; ui < U.length; ui++) for (let l = 0; l < 4; l++) if (!S.done[code][`${li}-${ui}-${l}`]) return [li, ui, l];
+  return null;
+}
 
 /* Speech */
 let voices = [];
@@ -472,6 +645,11 @@ const mkListen = (C,w) => ({k:'listen', item:w, opts:opts(w.t, C.units[w.u].word
 const mkType = w => ({k:'type', item:w});
 const mkMatch = ws => ({k:'match', items:ws});
 const mkFill = f => ({k:'fill', item:f, opts:shuffle([f.ans, ...f.dis]), ans:f.ans});
+const mkFree = s => ({k:'free', item:s, ans:s.t});
+const mkDict = s => ({k:'dict', item:s, ans:s.t});
+const mkSpeak = it => ({k:'speak', item:it, ans:it.t});
+const mkRead = (U, qi) => ({k:'read', U, q:U.r.q[qi], opts:shuffle([U.r.q[qi][1], ...U.r.q[qi][2]]), ans:U.r.q[qi][1], item:null});
+const mkPattern = U => ({k:'pattern', U, item:null});
 function mkBuild(C, s, dir){
   const ans = dir === 't2e' ? s.en : s.t, toks = tokens(ans);
   const inAns = new Set(toks.map(norm));
@@ -481,38 +659,40 @@ function mkBuild(C, s, dir){
   const dis = shuffle(uniq).slice(0, toks.length <= 4 ? 3 : 2);
   return {k:'build', dir, item:s, tiles:shuffle([...toks, ...dis]).map((text,id) => ({id,text})), ans};
 }
-function buildLesson(code, u, l){
-  const C = COURSES[code], U = C.units[u], V = hasVoice(code), seq = [];
+const STRONG = {type:1, fill:1, dict:1, speak:1, free:1};
+const isStrong = ex => !!STRONG[ex.k] || (ex.k === 'build' && ex.dir === 'e2t');
+
+function buildLesson(code, li, ui, l){
+  const C = COURSES[code], U = C.levels[li].units[ui], V = hasVoice(code), seq = [];
   if (l < 2){
-    const nw = U.words.slice(l*5, l*5+5);
-    nw.forEach((w,i) => { seq.push(mkMC(C, w, 't2e', !seen(w))); if (i % 2 === 1) seq.push(mkMC(C, nw[i-1], 'e2t')); });
-    seq.push(mkMatch(nw));
-    const r = shuffle(nw);
-    seq.push(mkType(r[0]), mkType(r[1]), V ? mkListen(C, r[2]) : mkMC(C, r[2], 'e2t'), mkType(r[3]), mkType(r[4]));
-    const rev = l === 1 ? U.words.slice(0,5) : C.allWords.filter(w => w.u < u);
+    const nw = U.words.slice(l*5, l*5+5), [a,b,c,d,e] = nw;
+    if (l === 0) seq.push(mkPattern(U));
+    // expanding spacing: each new word is introduced, typed two items later, matched, then typed again
+    seq.push(mkMC(C,a,'t2e',!seen(a)), mkMC(C,b,'t2e',!seen(b)), mkType(a), mkMC(C,c,'t2e',!seen(c)), mkType(b),
+             mkMC(C,d,'t2e',!seen(d)), mkType(c), mkMC(C,e,'t2e',!seen(e)), mkMatch(nw), mkType(d), mkType(e),
+             V ? mkListen(C,a) : mkMC(C,a,'e2t'), mkSpeak(b), mkType(c));
+    const rev = l === 1 ? U.words.slice(0,5) : C.allWords.filter(w => seen(w) && w.u < U.index);
     if (rev.length) seq.push(mkType(pick(rev)));
   } else if (l === 2){
     const s = U.sents, f = shuffle(U.fills);
-    seq.push(mkBuild(C,s[0],'t2e'), mkFill(f[0]), mkBuild(C,s[1],'e2t'), mkBuild(C,s[2],'t2e'), mkFill(f[1]),
-             mkBuild(C,s[3],'e2t'), mkType(pick(U.words)), mkBuild(C,s[4],'e2t'), mkFill(f[2]),
-             V ? mkListen(C, pick(U.words)) : mkType(pick(U.words)));
+    seq.push(mkPattern(U), mkBuild(C,s[0],'t2e'), mkFill(f[0]), mkBuild(C,s[1],'e2t'), mkFree(s[0]), mkBuild(C,s[2],'t2e'), mkFill(f[1]),
+             mkSpeak(s[3]), mkBuild(C,s[3],'e2t'), mkFill(f[2]), mkBuild(C,s[4],'e2t'), V ? mkDict(s[5]) : mkBuild(C,s[5],'e2t'), mkFree(s[5]));
   } else {
     const ws = shuffle(U.words), ss = shuffle(U.sents), ff = shuffle(U.fills);
-    seq.push(mkType(ws[0]), mkBuild(C,ss[0],'e2t'), mkType(ws[1]), mkFill(ff[0]), mkType(ws[2]),
-             mkBuild(C,ss[1],'e2t'), V ? mkListen(C,ws[3]) : mkType(ws[3]), mkType(ws[4]), mkFill(ff[1]),
-             mkBuild(C,ss[2],'e2t'), mkType(ws[5]), mkBuild(C,ss[3],'t2e'), mkType(ws[6]));
+    seq.push(mkType(ws[0]), mkBuild(C,ss[0],'e2t'), mkType(ws[1]), mkFill(ff[0]), mkRead(U,0), mkRead(U,1), mkType(ws[2]), mkFree(ss[1]),
+             V ? mkDict(ss[2]) : mkBuild(C,ss[2],'e2t'), mkType(ws[3]), mkFill(ff[1]), mkSpeak(ss[3]), mkFree(ss[4]), mkType(ws[4]), mkBuild(C,ss[5],'t2e'));
   }
   return seq;
 }
 function reviewEx(C, it){
-  if (it.kind === 's') return mkBuild(C, it, Math.random() < .75 ? 'e2t' : 't2e');
-  if (it.kind === 'f') return mkFill(it);
   const r = Math.random();
+  if (it.kind === 's') return r < .4 ? mkFree(it) : r < .8 ? mkBuild(C, it, 'e2t') : mkBuild(C, it, 't2e');
+  if (it.kind === 'f') return mkFill(it);
   return r < .6 ? mkType(it) : (r < .8 && hasVoice(C.code)) ? mkListen(C, it) : mkMC(C, it, 'e2t');
 }
 function buildReview(code, extra){
   const C = COURSES[code];
-  let pool = extra
+  const pool = extra
     ? C.all.filter(seen).sort((a,b) => (rec(a).b - rec(b).b) || (rec(a).due - rec(b).due)).slice(0, 12)
     : dueItems(code).slice(0, REVIEW_CAP);
   if (!pool.length) return null;
@@ -522,39 +702,43 @@ function buildReview(code, extra){
 /* Home */
 const app = $('#app'), sheetRoot = $('#sheet-root'), toastEl = $('#toast');
 const codeBox = code => `<span class="code">${code.toUpperCase()}</span>`;
-const coursePct = code => Math.round(Object.keys(S.done[code]).length / (COURSES[code].units.length*4) * 100);
+const levelPct = (code, li) => { const n = COURSES[code].levels[li].units.length*4; let d = 0; for (const k in S.done[code]) if (k.startsWith(li+'-')) d++; return Math.round(d/n*100); };
 
 function renderHome(){
   screen = 'home'; L = null;
   const code = S.lang, C = COURSES[code], done = S.done[code];
-  const flat = []; C.units.forEach((U,u) => [0,1,2,3].forEach(l => flat.push(u+'-'+l)));
-  const nextId = flat.find(id => !done[id]);
+  const li = viewLevel[code] ?? curLevel(code);
+  const Lv = C.levels[li];
   const due = dueItems(code).length, nd = nextDue(code), anySeen = C.all.some(seen);
-  const nextLesson = nextId ? nextId.split('-').map(Number) : null;
+  const nx = nextLesson(code, li);
+  const ret = retention7();
+  const lessonBtn = (n, label) => n ? `<button class="btn ${label==='line'?'btn-line':''}" data-act="lesson" data-lv="${n[0]}" data-u="${n[1]}" data-l="${n[2]}">Unit ${n[1]+1} · ${LESSONS[n[2]][0]} <span class="est">${mins(14)}</span></button>` : '';
 
-  const reviewCard = !anySeen
-    ? `<section class="card"><h2>Start here</h2><p>Do Unit 1 · Words I. Every word you learn is scheduled for review at growing intervals (1, 3, 7, 16, 35, 90 days). Doing reviews when they're due is what makes it stick.</p>
-        <div class="row"><button class="btn" data-act="lesson" data-u="0" data-l="0">Start Unit 1 · Words I</button></div></section>`
+  const today_ = !anySeen
+    ? `<section class="card"><h2>Start here</h2><p>Each unit opens with a short pattern note, then drills 10 words and 6 sentences, mostly by typing. Everything you answer is scheduled for review at 1, 3, 7, 16, 35 and 90 days. Doing reviews the day they come due is what makes it stick.</p>
+        <div class="row">${lessonBtn(nx || [li,0,0])}</div></section>`
     : due
-      ? `<section class="card"><h2>${due} item${due>1?'s':''} due for review</h2><p>Do these before new lessons. Reviews are mostly typed recall.${due > REVIEW_CAP ? ` Sessions take ${REVIEW_CAP} at a time.` : ''}</p>
-          <div class="row"><button class="btn" data-act="review">Review now</button></div></section>`
-      : `<section class="card"><h2>No reviews due</h2><p>Next review in ${nd ? inTime(nd - Date.now()) : '—'}. ${nextLesson ? 'Continue with the next lesson, or drill your weakest items.' : 'Drill your weakest items while you wait.'}</p>
-          <div class="row">${nextLesson ? `<button class="btn" data-act="lesson" data-u="${nextLesson[0]}" data-l="${nextLesson[1]}">Next: Unit ${nextLesson[0]+1} · ${LESSONS[nextLesson[1]][0]}</button>` : ''}<button class="btn btn-line" data-act="extra">Drill weakest</button></div></section>`;
+      ? `<section class="card"><h2>Today</h2><p>${due} item${due>1?'s':''} due. Reviews come first; new lessons go in after them.${due > REVIEW_CAP ? ` Sessions take ${REVIEW_CAP} at a time.` : ''}</p>
+          <div class="row"><button class="btn" data-act="review">Review ${Math.min(due, REVIEW_CAP)} due <span class="est">${mins(Math.min(due, REVIEW_CAP))}</span></button>${lessonBtn(nx, 'line')}</div></section>`
+      : `<section class="card"><h2>Today</h2><p>No reviews due. Next review in ${nd ? inTime(nd - Date.now()) : '—'}. ${nx ? 'Take the next lesson, or drill your weakest items.' : 'Level complete. Drill your weakest items while you wait.'}</p>
+          <div class="row">${lessonBtn(nx)}<button class="btn btn-line" data-act="extra">Drill weakest</button></div></section>`;
 
-  const units = C.units.map((U,u) => {
-    const n = [0,1,2,3].filter(l => done[u+'-'+l]).length;
+  const units = Lv.units.map((U,ui) => {
+    const n = [0,1,2,3].filter(l => done[`${li}-${ui}-${l}`]).length;
     const rows = [0,1,2,3].map(l => {
-      const id = u+'-'+l, isDone = !!done[id], isNext = id === nextId;
-      return `<button class="lrow ${isDone?'done':''} ${isNext?'next':''}" data-act="lesson" data-u="${u}" data-l="${l}">
+      const id = `${li}-${ui}-${l}`, isDone = !!done[id], isNext = nx && nx[1] === ui && nx[2] === l;
+      return `<button class="lrow ${isDone?'done':''} ${isNext?'next':''}" data-act="lesson" data-lv="${li}" data-u="${ui}" data-l="${l}">
         <span class="st">${isDone ? I.check : ''}</span>
         <span><span class="lname">${LESSONS[l][0]}</span><span class="lsub">${LESSONS[l][1]}</span></span>
         ${isNext ? '<span class="tag">Next</span>' : isDone ? '<span class="pct">Redo</span>' : '<span></span>'}</button>`;
     }).join('');
     return `<section class="unit">
-      <div class="uhead"><div><p class="ulabel">Unit ${u+1} · ${n}/4 done</p><h2><span lang="${C.lang}">${esc(U.t)}</span> <small>${esc(U.en)}</small></h2></div>
-      <button class="linkbtn" data-act="words" data-u="${u}">Word list</button></div>
+      <div class="uhead"><div><p class="ulabel">Unit ${ui+1} · ${n}/4 done</p><h2><span lang="${C.lang}">${esc(U.t)}</span> <small>${esc(U.en)}</small></h2></div>
+      <span class="row" style="gap:14px"><button class="linkbtn" data-act="pattern" data-u="${U.index}">Pattern</button><button class="linkbtn" data-act="words" data-u="${U.index}">Words</button></span></div>
       <div class="lessons">${rows}</div></section>`;
   }).join('');
+
+  const tabs = C.levels.length > 1 ? `<div class="tabs">${C.levels.map((_,i) => `<button class="${i===li?'on':''}" data-act="level" data-lv="${i}">Level ${i+1} · ${levelPct(code,i)}%</button>`).join('')}</div>` : '';
 
   app.innerHTML = `
   <header class="top"><div class="wrap topin">
@@ -562,15 +746,16 @@ function renderHome(){
     <button class="iconbtn" data-act="settings" aria-label="Settings">${I.sliders}</button>
   </div></header>
   <main class="wrap home">
-    <section class="hero"><h1>${C.name} · Level ${LEVEL}</h1><p>${esc(C.note)} · ${coursePct(code)}% of Level ${LEVEL} done</p>
+    <section class="hero"><h1>${C.name} · Level ${li+1}</h1><p>${esc(C.note)} · ${levelPct(code, li)}% of Level ${li+1} done</p>
       <div class="figs">
         <div class="fig"><b>${learned(code)}</b><span>words learned</span></div>
         <div class="fig"><b>${solid(code)}</b><span>words solid (16+ day interval)</span></div>
-        <div class="fig"><b>${due}</b><span>due now</span></div>
+        <div class="fig"><b>${ret === null ? '—' : ret + '%'}</b><span>7-day review accuracy</span></div>
       </div></section>
-    ${reviewCard}
+    ${today_}
+    ${tabs}
     ${units}
-    <p class="endlevel">Level ${LEVEL} covers ${C.allWords.length} words and ${C.allSents.length} sentences. When it's done, ask Claude in this project for Level ${LEVEL+1} and it will be added here without touching your progress.</p>
+    <p class="endlevel">Level ${li+1}: ${Lv.units.reduce((n,u)=>n+u.words.length,0)} words, ${Lv.units.reduce((n,u)=>n+u.sents.length,0)} sentences, ${Lv.units.length} pattern notes. Ask Claude in this project for the next level when you want it; your progress stays.</p>
   </main>`;
 }
 
@@ -581,22 +766,29 @@ function openSheet(html, label){
 }
 const closeSheet = () => { sheetRoot.innerHTML = ''; };
 const sheetHead = t => `<div class="sheet-head"><h3>${t}</h3><button class="iconbtn" data-act="close-sheet" aria-label="Close">${I.close}</button></div>`;
+const patternHTML = U => `<div class="pat"><h3 class="ptitle">${U.p.h}</h3><ul>${U.p.l.map(x => `<li>${x}</li>`).join('')}</ul><p class="cf"><b>Compare:</b> ${U.p.cf}</p></div>`;
 function courseSheet(){
   openSheet(sheetHead('Language') + `<div class="courses">${ORDER.map(c => {
     const C = COURSES[c], due = dueItems(c).length;
     return `<button class="crow ${c===S.lang?'on':''}" data-act="setlang" data-lang="${c}">${codeBox(c)}
       <span><b>${C.name}</b><small>${learned(c)} words learned${due ? ` · ${due} due` : ''}</small></span>
-      <span class="pct">${coursePct(c)}%</span></button>`;
+      <span class="pct">${levelPct(c, curLevel(c))}%</span></button>`;
   }).join('')}</div>`, 'Language');
 }
-function wordsSheet(u){
-  const C = COURSES[S.lang], U = C.units[u];
+function patternSheet(idx){
+  const C = COURSES[S.lang], U = C.units[idx];
+  openSheet(sheetHead(`Unit ${U.ui+1} · <span lang="${C.lang}">${esc(U.t)}</span>`) + patternHTML(U), 'Pattern');
+}
+function wordsSheet(idx){
+  const C = COURSES[S.lang], U = C.units[idx];
   const st = it => { const r = rec(it); return r ? `<span class="due">${r.due <= Date.now() ? 'due' : 'in ' + inTime(r.due - Date.now())}</span>` : '<span class="due">new</span>'; };
   const spk = t => canSpeak ? `<button class="spk sm" data-act="say" data-say="${esc(t)}" aria-label="Play ${esc(t)}">${I.spk}</button>` : '<span></span>';
-  openSheet(sheetHead(`Unit ${u+1} · <span lang="${C.lang}">${esc(U.t)}</span>`) + `
+  openSheet(sheetHead(`Unit ${U.ui+1} · <span lang="${C.lang}">${esc(U.t)}</span>`) + `
     <ul class="wlist">${U.words.map(w => `<li>${spk(w.t)}<span class="wt" lang="${C.lang}">${esc(w.t)}</span><span class="we">${esc(w.en)}</span>${st(w)}</li>`).join('')}</ul>
     <h4>Sentences</h4>
     <ul class="slist">${U.sents.map(s => `<li>${spk(s.t)}<span><span class="wt" lang="${C.lang}">${esc(s.t)}</span><br><span class="se">${esc(s.en)}</span></span></li>`).join('')}</ul>
+    <h4>Reading</h4>
+    <p lang="${C.lang}" style="color:var(--ink)">${esc(U.r.t)}</p>
     ${S.lang==='la' && canSpeak ? '<p class="note">Latin audio uses an Italian voice, which approximates ecclesiastical pronunciation.</p>' : ''}`, 'Word list');
 }
 function settingsSheet(confirmReset){
@@ -607,6 +799,7 @@ function settingsSheet(confirmReset){
     ${!canSpeak ? '<p class="note">This browser has no speech voices, so listening exercises are replaced with typing.</p>' : ''}
     <h4>Saving</h4>
     <span class="savebadge ${syncMode==='account'?'acct':''}"><i></i>${syncMode==='account' ? 'Progress saves to your Claude account' : 'Progress saves in this browser'}</span>
+    <p class="note">${sampleNS ? 'Free translations are graded by Claude, so different wordings are accepted.' : 'Free translations are checked against the reference sentence. Open this in Claude to have them graded by Claude.'}</p>
     <h4>${C.name}</h4>
     ${confirmReset
       ? `<p>Erase all ${C.name} lessons and review history?</p><div class="row"><button class="btn btn-bad" data-act="reset-yes">Erase ${C.name} progress</button><button class="btn btn-text" data-act="settings">Cancel</button></div>`
@@ -616,11 +809,11 @@ let toastT = null;
 function toast(msg){ toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => toastEl.hidden = true, 2400); }
 
 /* Session */
-function startSession(kind, u, l){
+function startSession(kind, lv, u, l){
   const code = S.lang;
-  const q = kind === 'lesson' ? buildLesson(code, u, l) : buildReview(code, kind === 'extra');
+  const q = kind === 'lesson' ? buildLesson(code, lv, u, l) : buildReview(code, kind === 'extra');
   if (!q) return toast('Nothing to review yet.');
-  L = {code, kind, u, l, queue:q, i:0, done:0, total:q.length, misses:[], firstTry:0, start:Date.now()};
+  L = {code, kind, lv, u, l, queue:q, i:0, done:0, total:q.length, misses:[], firstTry:0, start:Date.now()};
   screen = 'lesson'; closeSheet();
   app.innerHTML = `<div class="lesson">
     <div class="wrap ltop"><button class="iconbtn" data-act="quit" aria-label="Stop session">${I.close}</button>
@@ -647,8 +840,14 @@ function renderEx(){
   const exEl = $('#ex'); exEl.className = 'wrap';
   const spkBtn = (t, big) => canSpeak ? `<button class="spk ${big?'huge':''}" data-act="say" data-say="${esc(t)}" aria-label="Play audio">${I.spk}</button>` : '';
   const optList = target => `<div class="opts" role="group">${shuffle(ex.opts).map((o,i) => `<button class="opt" data-act="opt" data-v="${esc(o)}" ${target?`lang="${lg}"`:''}><span class="k">${i+1}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
-  let h = '';
-  if (ex.k === 'mc' && ex.dir === 't2e'){
+  const inputBox = ph => `<input class="input" id="ans" lang="${lg}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(ph)}" aria-label="Your answer">
+      <div class="accents" aria-label="Special characters">${ACCENTS[L.code].map(a => `<button class="acc" data-act="acc" data-c="${esc(a)}">${esc(a)}</button>`).join('')}</div>`;
+  let h = '', footHTML = '';
+  if (ex.k === 'pattern'){
+    h = `<div class="qhead"><span class="newtag">Pattern · Unit ${ex.U.ui+1}</span><h2 class="qt">Read this once, then drill it</h2></div>${patternHTML(ex.U)}`;
+    footHTML = `<button class="btn wide" id="cont" data-act="cont">Continue</button>`;
+    L.locked = true;
+  } else if (ex.k === 'mc' && ex.dir === 't2e'){
     h = `<div class="qhead">${ex.isNew?'<span class="newtag">New word</span>':''}<h2 class="qt">What does this mean?</h2></div>
       <div class="prompt">${spkBtn(ex.item.t)}<span class="big" lang="${lg}">${esc(ex.item.t)}</span></div>${optList(false)}`;
   } else if (ex.k === 'mc'){
@@ -656,21 +855,34 @@ function renderEx(){
   } else if (ex.k === 'listen'){
     h = `<div class="qhead"><h2 class="qt">Which word do you hear?</h2></div>
       <div class="listenrow">${spkBtn(ex.item.t, true)}<button class="spk slow" data-act="sayslow" data-say="${esc(ex.item.t)}" aria-label="Play slowly">Slow</button></div>${optList(true)}`;
+  } else if (ex.k === 'dict'){
+    h = `<div class="qhead"><h2 class="qt">Type what you hear</h2></div>
+      <div class="listenrow">${spkBtn(ex.item.t, true)}<button class="spk slow" data-act="sayslow" data-say="${esc(ex.item.t)}" aria-label="Play slowly">Slow</button></div>${inputBox(C.name)}`;
   } else if (ex.k === 'type'){
     h = `<div class="qhead"><h2 class="qt">Type this in ${C.name}</h2></div>
-      <div class="prompt"><span class="big">${esc(ex.item.en)}</span></div>
-      <input class="input" id="ans" lang="${lg}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${C.name}" aria-label="Your answer">
-      <div class="accents" aria-label="Special characters">${ACCENTS[L.code].map(a => `<button class="acc" data-act="acc" data-c="${a}">${a}</button>`).join('')}</div>`;
+      <div class="prompt"><span class="big">${esc(ex.item.en)}</span></div>${inputBox(C.name)}`;
+  } else if (ex.k === 'free'){
+    h = `<div class="qhead"><h2 class="qt">Translate into ${C.name}</h2></div>
+      <div class="prompt"><span class="sent">${esc(ex.item.en)}</span></div>${inputBox('Write the whole sentence')}`;
+  } else if (ex.k === 'speak'){
+    h = `<div class="qhead"><h2 class="qt">Say it aloud in ${C.name}</h2></div>
+      <div class="prompt"><span class="sent">${esc(ex.item.en)}</span></div>
+      <div class="reveal" id="reveal" lang="${lg}"></div><p class="sub-en">Say it out loud first, then reveal and judge yourself. Be strict.</p>`;
+    footHTML = `<button class="btn wide" id="check" data-act="reveal">Reveal</button>`;
   } else if (ex.k === 'fill'){
     h = `<div class="qhead"><h2 class="qt">Fill in the blank</h2></div>
       <div><div class="sent" lang="${lg}">${glossTokens(ex.item.t, L.code)}</div><p class="sub-en">${esc(ex.item.en)}</p></div>
       <div class="hint" id="hint" aria-live="polite"></div>${optList(true)}`;
   } else if (ex.k === 'build'){
     const t2e = ex.dir === 't2e';
-    h = `<div class="qhead"><h2 class="qt">${t2e ? 'Translate into English' : `Translate into ${C.name}`}</h2></div>
+    h = `<div class="qhead"><h2 class="qt">${t2e ? 'Translate into English' : `Build this in ${C.name}`}</h2></div>
       <div class="prompt">${t2e ? spkBtn(ex.item.t) : ''}<span class="sent" ${t2e?`lang="${lg}"`:''}>${t2e ? glossTokens(ex.item.t, L.code) : esc(ex.item.en)}</span></div>
       ${t2e ? '<div class="hint" id="hint" aria-live="polite">Tap a dotted word for its meaning.</div>' : ''}
       <div class="lines" id="lines" aria-label="Your answer"></div><div class="bank" id="bank"></div>`;
+  } else if (ex.k === 'read'){
+    h = `<div class="qhead"><span class="newtag">Reading</span><h2 class="qt">${esc(ex.q[0])}</h2></div>
+      <div class="passage" lang="${lg}">${glossTokens(ex.U.r.t, L.code)}</div>
+      <div class="hint" id="hint" aria-live="polite">Tap a dotted word for its meaning.</div>${optList(false)}`;
   } else if (ex.k === 'match'){
     const idx = ex.items.map((_,i) => i);
     L.m = {t:null, e:null, done:new Set(), ot:shuffle(idx), oe:shuffle(idx), missed:false};
@@ -681,11 +893,13 @@ function renderEx(){
   if (ex.k === 'match') drawMatch();
   const foot = $('#foot'); foot.className = 'foot';
   foot.innerHTML = `<div class="wrap footin">
-    ${ex.k === 'listen' ? `<button class="btn btn-text" data-act="nolisten">Can’t listen now</button>` : ''}
-    ${ex.k === 'match' ? '<span class="foot-note">Tap a word, then its meaning</span>' : '<button class="btn wide" id="check" data-act="check" disabled>Check</button>'}</div>`;
+    ${(ex.k === 'listen' || ex.k === 'dict') ? `<button class="btn btn-text" data-act="nolisten">Can’t listen now</button>` : ''}
+    ${footHTML || (ex.k === 'match' ? '<span class="foot-note">Tap a word, then its meaning</span>' : '<button class="btn wide" id="check" data-act="check" disabled>Check</button>')}</div>`;
   setBar();
-  if (ex.k === 'type'){ const inp = $('#ans'); inp.addEventListener('input', () => { $('#check').disabled = !inp.value.trim(); }); if (matchMedia('(pointer:fine)').matches) inp.focus(); }
-  if (S.audio && ((ex.k === 'mc' && ex.dir === 't2e') || ex.k === 'listen' || (ex.k === 'build' && ex.dir === 't2e'))) setTimeout(() => speak(ex.item.t, L.code), 250);
+  const inp = $('#ans');
+  if (inp){ inp.addEventListener('input', () => { $('#check').disabled = !inp.value.trim(); }); if (matchMedia('(pointer:fine)').matches) inp.focus(); }
+  if (ex.k === 'pattern') $('#cont').focus({preventScroll:true});
+  if (S.audio && ((ex.k === 'mc' && ex.dir === 't2e') || ex.k === 'listen' || ex.k === 'dict' || (ex.k === 'build' && ex.dir === 't2e'))) setTimeout(() => speak(ex.item.t, L.code), 250);
 }
 function drawBuild(){
   const ex = cur(), lg = COURSES[L.code].lang, t = ex.dir === 'e2t' ? `lang="${lg}"` : '';
@@ -714,7 +928,7 @@ function matchTap(side, i){
     } else {
       m.missed = true;
       grade(ex.items[a], false);
-      L.misses.push({q: ex.items[a].t, a: ex.items[a].en, lang:true});
+      L.misses.push({q: ex.items[a].t, a: ex.items[a].en});
       drawMatch();
       document.querySelectorAll(`.mt[data-side="t"][data-i="${a}"],.mt[data-side="e"][data-i="${b}"]`).forEach(el => el.classList.add('miss'));
       m.t = m.e = null;
@@ -723,23 +937,32 @@ function matchTap(side, i){
   } else drawMatch();
 }
 function judgeType(code, w, raw){
-  const v = clean(raw), cands = [w.t, ...w.alt];
+  const v = clean(raw), cands = [w.t, ...(w.alt||[])];
   for (const c of cands){ const cc = clean(c); if (v === cc || v === stripArt(cc)) return {ok:true, note: c !== w.t ? `Also: ${w.t}` : ''}; }
   for (const c of cands){ const cc = clean(c); if (stripArt(v) === stripArt(cc)) return {ok:true, note:`Article: ${w.t}`}; }
   for (const c of cands){ const cc = clean(c); if (stripAcc(v) === stripAcc(cc) || stripAcc(v) === stripAcc(stripArt(cc)) || stripAcc(stripArt(v)) === stripAcc(stripArt(cc))) return {ok:true, note: code === 'la' ? `With macrons: ${w.t}` : `Accents: ${w.t}`}; }
   return {ok:false};
 }
+function judgeSentence(code, ans, raw){
+  if (clean(raw) === clean(ans)) return {ok:true, note:''};
+  if (norm(raw) === norm(ans)) return {ok:true, note: code === 'la' ? `With macrons: ${ans}` : `Accents: ${ans}`};
+  if (code === 'la'){
+    const a = tokens(ans).map(norm).sort().join('|'), b = tokens(raw).map(norm).sort().join('|');
+    if (a === b) return {ok:true, note:`Latin word order is flexible. Textbook order: ${ans}`};
+  }
+  return {ok:false, note:''};
+}
 function promptOf(ex){
   if (ex.k === 'mc') return ex.dir === 't2e' ? ex.item.t : ex.item.en;
-  if (ex.k === 'listen') return '(audio)';
-  if (ex.k === 'type' || ex.k === 'fill') return ex.item.en;
+  if (ex.k === 'listen' || ex.k === 'dict') return '(audio)';
+  if (ex.k === 'read') return ex.q[0];
   if (ex.k === 'build') return ex.dir === 't2e' ? ex.item.t : ex.item.en;
-  return '';
+  return ex.item ? ex.item.en : '';
 }
 function check(){
   if (L.locked) return;
   const ex = cur(); let ok = false, shown = '', note = '';
-  if (ex.k === 'mc' || ex.k === 'listen' || ex.k === 'fill'){
+  if (ex.k === 'mc' || ex.k === 'listen' || ex.k === 'fill' || ex.k === 'read'){
     if (L.sel == null) return;
     ok = L.sel === ex.ans;
     shown = ex.k === 'fill' ? ex.item.t.replace('___', ex.ans) : ex.ans;
@@ -747,73 +970,101 @@ function check(){
   } else if (ex.k === 'type'){
     const v = $('#ans').value; if (!v.trim()) return;
     const r = judgeType(L.code, ex.item, v); ok = r.ok; note = r.note || ''; shown = ex.item.t;
+  } else if (ex.k === 'dict'){
+    const v = $('#ans').value; if (!v.trim()) return;
+    const r = judgeSentence(L.code, ex.ans, v); ok = r.ok; note = r.note; shown = ex.ans;
+  } else if (ex.k === 'free'){
+    return checkFree();
   } else if (ex.k === 'build'){
     if (!L.picked.length) return;
-    const got = L.picked.map(id => ex.tiles[id].text);
-    ok = norm(got.join(' ')) === norm(ex.ans);
-    if (!ok && L.code === 'la' && ex.dir === 'e2t'){
-      const a = tokens(ex.ans).map(norm).sort().join('|'), b = got.map(norm).sort().join('|');
-      if (a === b){ ok = true; note = `Latin word order is flexible. Textbook order: ${ex.ans}`; }
-    }
-    shown = ex.ans;
+    const got = L.picked.map(id => ex.tiles[id].text).join(' ');
+    const r = ex.dir === 'e2t' ? judgeSentence(L.code, ex.ans, got) : {ok: norm(got) === norm(ex.ans), note:''};
+    ok = r.ok; note = r.note; shown = ex.ans;
   }
   resolve(ok, shown, note);
+}
+async function checkFree(){
+  const ex = cur(), v = $('#ans').value; if (!v.trim()) return;
+  const C = COURSES[L.code];
+  let r = judgeSentence(L.code, ex.ans, v);
+  if (!r.ok && sampleNS){
+    L.locked = true; $('#ex').classList.add('locked');
+    $('#foot').innerHTML = `<div class="wrap footin"><span class="checking">Checking your translation…</span></div>`;
+    const prompt = `Grade a beginner's ${C.name} translation.\nEnglish: "${ex.item.en}"\nReference ${C.name}: "${ex.ans}"\nStudent wrote: "${v}"\nMark it correct if the meaning and grammar are right, even if worded differently from the reference. ${L.code === 'la' ? 'Macrons are optional and word order is free.' : 'Missing accents are acceptable; mention them.'} Reply with only JSON: {"ok": true or false, "note": "one short sentence of feedback, empty string if perfect"}`;
+    try {
+      const res = await Promise.race([sampleNS.json(prompt, {modelTier:'quick'}), new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 15000))]);
+      if (res && typeof res.ok === 'boolean') r = {ok: res.ok, note: String(res.note || '').slice(0, 200)};
+    } catch(e){}
+    if (screen !== 'lesson' || cur() !== ex) return;
+    L.locked = false;
+  }
+  resolve(r.ok, ex.ans, r.note);
+}
+function revealSpeak(){
+  const ex = cur(); if (L.locked) return;
+  $('#reveal').textContent = ex.ans; speak(ex.ans, L.code);
+  $('#foot').innerHTML = `<div class="wrap footin"><div class="self"><button class="btn btn-bad" data-act="self" data-ok="0">Missed it</button><button class="btn btn-ok" data-act="self" data-ok="1">Got it</button></div></div>`;
 }
 function resolve(ok, shown, note, fromMatch){
   const ex = cur(); L.locked = true;
   $('#ex').classList.add('locked');
-  if (ex.k === 'match'){ ex.items.forEach(w => grade(w, true)); if (!ex.counted){ ex.counted = true; L.done++; if (ok) L.firstTry++; } }
+  const first = !ex.wrongs;
+  if (ex.k === 'match'){ ex.items.forEach(w => grade(w, true, false)); if (!ex.counted){ ex.counted = true; L.done++; if (ok) L.firstTry++; } }
   else {
-    grade(ex.item, ok);
-    if (ok){ if (!ex.counted){ ex.counted = true; L.done++; if (!ex.wrongs) L.firstTry++; } }
+    grade(ex.item, ok, isStrong(ex));
+    if (L.kind === 'review' && ex.item && first){ const t = today(); const g = S.log[t] || {ok:0,n:0}; g.n++; if (ok) g.ok++; S.log[t] = g; const ks = Object.keys(S.log).sort(); if (ks.length > 40) ks.slice(0, ks.length-40).forEach(k => delete S.log[k]); }
+    if (ok){ if (!ex.counted){ ex.counted = true; L.done++; if (first) L.firstTry++; } }
     else {
       ex.wrongs = (ex.wrongs||0) + 1;
-      if (ex.wrongs === 1) L.misses.push({q: promptOf(ex), a: shown});
-      if (ex.wrongs <= 2) L.queue.push(ex);
+      if (ex.wrongs === 1 && ex.item) L.misses.push({q: promptOf(ex), a: shown});
+      if (ex.k === 'read'){ if (!ex.counted){ ex.counted = true; L.done++; } }
+      else if (ex.wrongs <= 2) L.queue.push(ex.k === 'speak' ? mkType(ex.item) : ex);
     }
   }
   if (ok && S.audio){
-    const say = ex.k === 'fill' ? ex.item.t.replace('___', ex.ans) : ((ex.k === 'build' && ex.dir === 'e2t') || (ex.k === 'mc' && ex.dir === 'e2t') || ex.k === 'type') ? ex.item.t : '';
+    const say = ex.k === 'fill' ? ex.item.t.replace('___', ex.ans) : ((ex.k === 'build' && ex.dir === 'e2t') || (ex.k === 'mc' && ex.dir === 'e2t') || ex.k === 'type' || ex.k === 'free') ? ex.item.t : '';
     if (say) setTimeout(() => speak(say, L.code), 120);
   }
   save();
   setBar();
   const foot = $('#foot'), lg = COURSES[L.code].lang;
-  const ansLang = (ex.k === 'build' && ex.dir === 't2e') || (ex.k === 'mc' && ex.dir === 't2e') ? '' : `lang="${lg}"`;
+  const ansLang = (ex.k === 'build' && ex.dir === 't2e') || (ex.k === 'mc' && ex.dir === 't2e') || ex.k === 'read' ? '' : `lang="${lg}"`;
   foot.className = 'foot ' + (ok ? 'ok' : 'bad');
   foot.innerHTML = `<div class="wrap footin" role="status">
     <div class="fbmsg">${ok
       ? `<strong>Correct</strong>${note ? `<div class="fbnote">${esc(note)}</div>` : ''}`
-      : fromMatch ? `<strong>Done</strong><div class="fbnote">Missed pairs will come back in review.</div>`
-      : `<strong>Answer:</strong><div class="fbans" ${ansLang}>${esc(shown)}</div>${ex.k==='build'&&ex.dir==='t2e'?`<div class="fbnote" lang="${lg}">${esc(ex.item.t)}</div>`:''}<div class="fbnote">It will come back at the end.</div>`}</div>
+      : fromMatch ? `<strong>Done</strong><div class="fbnote">Missed pairs are back in 10 minutes.</div>`
+      : `<strong>Answer:</strong><div class="fbans" ${ansLang}>${esc(shown)}</div>${ex.k==='build'&&ex.dir==='t2e'?`<div class="fbnote" lang="${lg}">${esc(ex.item.t)}</div>`:''}${note ? `<div class="fbnote">${esc(note)}</div>` : ''}${ex.k !== 'read' ? '<div class="fbnote">Comes back at the end of this session.</div>' : ''}`}</div>
     <button class="btn wide ${ok || fromMatch ?'btn-ok':'btn-bad'}" id="cont" data-act="cont">Continue</button></div>`;
   if (fromMatch && !ok) foot.className = 'foot';
   $('#cont').focus({preventScroll:true});
 }
 function next(){
+  if (!L.locked) return;
+  const ex = cur();
+  if (ex.k === 'pattern' && !ex.counted){ ex.counted = true; L.done++; }
   L.i++;
   if (L.i >= L.queue.length) return complete();
   window.scrollTo(0,0);
   renderEx();
 }
 function complete(){
-  if (L.kind === 'lesson') S.done[L.code][L.u + '-' + L.l] = 1;
+  if (L.kind === 'lesson') S.done[L.code][`${L.lv}-${L.u}-${L.l}`] = 1;
   save(true);
   const C = COURSES[L.code];
-  const mins = Math.max(1, Math.round((Date.now() - L.start)/60e3));
+  const m = Math.max(1, Math.round((Date.now() - L.start)/60e3));
   const due = dueItems(L.code).length;
   const title = L.kind === 'lesson' ? `Unit ${L.u+1} · ${LESSONS[L.l][0]} done` : L.kind === 'review' ? 'Review done' : 'Drill done';
-  const uniqMiss = [...new Map(L.misses.map(m => [m.q + '|' + m.a, m])).values()];
-  const flat = []; C.units.forEach((U,u) => [0,1,2,3].forEach(l => flat.push([u,l])));
-  const nx = flat.find(([u,l]) => !S.done[L.code][u+'-'+l]);
+  const uniqMiss = [...new Map(L.misses.map(x => [x.q + '|' + x.a, x])).values()];
+  const nx = nextLesson(L.code, L.kind === 'lesson' ? L.lv : curLevel(L.code));
   screen = 'done';
   app.innerHTML = `<div class="wrap endscr">
     <h1>${title}</h1>
-    <p class="lead">${L.firstTry} of ${L.total} right on the first try · about ${mins} min${due ? ` · ${due} item${due>1?'s':''} now due for review` : ''}</p>
-    ${uniqMiss.length ? `<div><p class="lead" style="margin-bottom:8px">Missed this session (scheduled for review in 10 minutes):</p>
-      <ul class="misses">${uniqMiss.map(m => `<li><span class="q">${esc(m.q)}</span><span class="a" lang="${C.lang}">${esc(m.a)}</span></li>`).join('')}</ul></div>` : ''}
+    <p class="lead">${L.firstTry} of ${L.total} right on the first try · ${m} min${due ? ` · ${due} item${due>1?'s':''} now due` : ''}</p>
+    ${uniqMiss.length ? `<div><p class="lead" style="margin-bottom:8px">Missed this session (back in 10 minutes):</p>
+      <ul class="misses">${uniqMiss.map(x => `<li><span class="q">${esc(x.q)}</span><span class="a" lang="${C.lang}">${esc(x.a)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="row">
-      ${due ? '<button class="btn" data-act="review">Review due items</button>' : nx ? `<button class="btn" data-act="lesson" data-u="${nx[0]}" data-l="${nx[1]}">Next: Unit ${nx[0]+1} · ${LESSONS[nx[1]][0]}</button>` : ''}
+      ${due ? '<button class="btn" data-act="review">Review due items</button>' : nx ? `<button class="btn" data-act="lesson" data-lv="${nx[0]}" data-u="${nx[1]}" data-l="${nx[2]}">Next: Unit ${nx[1]+1} · ${LESSONS[nx[2]][0]}</button>` : ''}
       <button class="btn btn-line" data-act="home">Back to course</button>
     </div></div>`;
   window.scrollTo(0,0);
@@ -825,17 +1076,19 @@ const ACT = {
   'settings': () => settingsSheet(false),
   'close-sheet': closeSheet,
   'setlang': b => { S.lang = b.dataset.lang; save(); closeSheet(); window.scrollTo(0,0); renderHome(); },
+  'level': b => { viewLevel[S.lang] = +b.dataset.lv; renderHome(); },
   'audio': () => { S.audio = !S.audio; save(); settingsSheet(false); },
   'reset': () => settingsSheet(true),
   'reset-yes': () => { S.done[S.lang] = {}; Object.keys(S.items).forEach(k => { if (k.startsWith(S.lang+'|')) delete S.items[k]; }); save(true); closeSheet(); renderHome(); toast(`${COURSES[S.lang].name} progress erased`); },
   'words': b => wordsSheet(+b.dataset.u),
-  'lesson': b => startSession('lesson', +b.dataset.u, +b.dataset.l),
+  'pattern': b => patternSheet(+b.dataset.u),
+  'lesson': b => startSession('lesson', +b.dataset.lv, +b.dataset.u, +b.dataset.l),
   'review': () => startSession('review'),
   'extra': () => startSession('extra'),
   'home': () => { closeSheet(); renderHome(); window.scrollTo(0,0); },
   'say': b => speak(b.dataset.say, L ? L.code : S.lang),
   'sayslow': b => speak(b.dataset.say, L.code, true),
-  'quit': () => openSheet(`<h3>Stop this session?</h3><p>Answers so far are already saved to your review schedule. The lesson won't be marked done.</p>
+  'quit': () => openSheet(`<h3>Stop this session?</h3><p>Answers so far are already in your review schedule. The lesson won't be marked done.</p>
      <div class="row"><button class="btn wide" data-act="close-sheet">Keep going</button><button class="btn btn-text" data-act="quit-yes">Stop</button></div>`, 'Stop session'),
   'quit-yes': () => { closeSheet(); save(true); renderHome(); },
   'opt': b => {
@@ -843,16 +1096,18 @@ const ACT = {
     L.sel = b.dataset.v;
     document.querySelectorAll('.opt').forEach(o => o.classList.toggle('sel', o === b));
     $('#check').disabled = false;
-    const ex = cur(); if (S.audio && (ex.k !== 'mc' || ex.dir === 'e2t')) speak(L.sel, L.code);
+    const ex = cur(); if (S.audio && ex.k !== 'read' && (ex.k !== 'mc' || ex.dir === 'e2t')) speak(L.sel, L.code);
   },
   'tile': b => { if (L.locked) return; const id = +b.dataset.id; if (!L.picked.includes(id)){ L.picked.push(id); if (S.audio && cur().dir === 'e2t') speak(cur().tiles[id].text, L.code); drawBuild(); } },
   'atile': b => { if (L.locked) return; const id = +b.dataset.id; L.picked = L.picked.filter(x => x !== id); drawBuild(); },
   'mt': b => matchTap(b.dataset.side, +b.dataset.i),
-  'acc': b => { const inp = $('#ans'); const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s; inp.value = inp.value.slice(0,s) + b.dataset.c + inp.value.slice(e); inp.focus(); inp.setSelectionRange(s+1, s+1); $('#check').disabled = !inp.value.trim(); },
+  'acc': b => { const inp = $('#ans'); if (!inp) return; const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s; inp.value = inp.value.slice(0,s) + b.dataset.c + inp.value.slice(e); inp.focus(); inp.setSelectionRange(s+1, s+1); $('#check').disabled = !inp.value.trim(); },
   'gl': b => { const h = $('#hint'); if (h) h.innerHTML = `<b lang="${COURSES[L.code].lang}">${esc(b.dataset.w)}</b> = ${esc(b.dataset.g)}`; speak(b.dataset.w, L.code); },
   'check': check,
+  'reveal': revealSpeak,
+  'self': b => resolve(b.dataset.ok === '1', cur().ans, ''),
   'cont': next,
-  'nolisten': () => { const ex = cur(); const n = mkType(ex.item); n.counted = ex.counted; L.queue[L.i] = n; renderEx(); },
+  'nolisten': () => { const ex = cur(); const n = ex.k === 'dict' ? mkBuild(COURSES[L.code], ex.item, 'e2t') : mkType(ex.item); n.counted = ex.counted; n.wrongs = ex.wrongs; L.queue[L.i] = n; renderEx(); },
 };
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -868,12 +1123,12 @@ document.addEventListener('keydown', e => {
     if (btn && !inInput && btn.id !== 'check' && btn.id !== 'cont') return;
     e.preventDefault();
     if (L.locked){ if ($('#cont')) next(); }
-    else { const c = $('#check'); if (c && !c.disabled) check(); }
+    else { const c = $('#check'); if (c && !c.disabled) (cur().k === 'speak' ? revealSpeak() : check()); }
     return;
   }
   if (inInput || L.locked) return;
   const ex = cur();
-  if (/^[1-9]$/.test(e.key) && (ex.k === 'mc' || ex.k === 'listen' || ex.k === 'fill')){
+  if (/^[1-9]$/.test(e.key) && (ex.k === 'mc' || ex.k === 'listen' || ex.k === 'fill' || ex.k === 'read')){
     const o = document.querySelectorAll('.opt')[+e.key - 1]; if (o) ACT.opt(o);
   } else if (e.key === 'Backspace' && ex.k === 'build' && L.picked.length){
     L.picked.pop(); drawBuild();
