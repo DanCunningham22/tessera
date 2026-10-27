@@ -513,7 +513,9 @@ const I = {
 
 /* State. items: one record per word/sentence/fill {b: box 0-6, due: ms, d: last day graded}. log: review accuracy per day. */
 const KEY = 'tessera.v3';
-const fresh = () => ({v:3,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},log:{},audio:true,updatedAt:0});
+const fresh = () => ({v:3,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},log:{},time:{},tlog:{},audio:true,updatedAt:0});
+// CEFR stage guideposts: words known (box 3+) and cumulative study hours. Vocabulary sizes follow the usual A1≈500 / A2≈1200 / B1≈2500 / B2≈5000 estimates; hours follow Instituto Cervantes guidance for Spanish and are a pacing reference only.
+const STAGES = [['A1',500,80],['A2',1200,200],['B1',2500,400],['B2',5000,650]];
 function migrate(s){
   const f = fresh(); s = Object.assign(f, s||{});
   for (const c of ORDER){
@@ -522,7 +524,7 @@ function migrate(s){
     s.done[c] = nd;
   }
   for (const k in s.items){ const r = s.items[k]; if (r && r.b === undefined){ s.items[k] = {b:Math.min(2,r.s||0), due:Date.now(), d:''}; } }
-  s.log = s.log || {};
+  s.log = s.log || {}; s.time = s.time || {}; s.tlog = s.tlog || {};
   return s;
 }
 function loadLocal(){
@@ -586,7 +588,26 @@ function grade(it, ok, strong){
 const dueItems = code => COURSES[code].all.filter(it => { const r = rec(it); return r && r.due <= Date.now(); }).sort((a,b) => rec(a).due - rec(b).due);
 const nextDue = code => { const ds = COURSES[code].all.map(rec).filter(Boolean).map(r => r.due); return ds.length ? Math.min(...ds) : null; };
 const learned = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 1; }).length;
-const solid = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 4; }).length;
+const known = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 3; }).length;
+function logTime(code, secs){
+  if (!(secs > 0)) return;
+  S.time[code] = (S.time[code] || 0) + secs;
+  const t = today(); S.tlog[t] = S.tlog[t] || {}; S.tlog[t][code] = (S.tlog[t][code] || 0) + secs;
+  const ks = Object.keys(S.tlog).sort(); if (ks.length > 60) ks.slice(0, ks.length-60).forEach(k => delete S.tlog[k]);
+}
+function pace14(code){ // seconds per day over the last 14 days
+  let s = 0; const cut = Date.now() - 14*DAY;
+  for (const d in S.tlog){ const [y,m,dd] = d.split('-').map(Number); if (new Date(y,m-1,dd).getTime() >= cut) s += S.tlog[d][code] || 0; }
+  return s / 14;
+}
+function stageInfo(code){
+  const k = known(code), h = (S.time[code] || 0) / 3600;
+  let i = 0; while (i < STAGES.length && k >= STAGES[i][1]) i++;
+  const cur = i ? STAGES[i-1][0] : 'Pre-A1', nxt = STAGES[i] || null;
+  const p = pace14(code) / 3600; // hours per day
+  const weeks = nxt && p > 0.02 ? Math.max(1, Math.round((nxt[2] - h) / p / 7)) : null;
+  return {cur, nxt, k, h, p, weeks};
+}
 function retention7(){
   let ok = 0, n = 0; const cut = Date.now() - 7*DAY;
   for (const d in S.log){ const [y,m,dd] = d.split('-').map(Number); if (new Date(y,m-1,dd).getTime() >= cut){ ok += S.log[d].ok; n += S.log[d].n; } }
@@ -749,14 +770,31 @@ function renderHome(){
     <section class="hero"><h1>${C.name} · Level ${li+1}</h1><p>${esc(C.note)} · ${levelPct(code, li)}% of Level ${li+1} done</p>
       <div class="figs">
         <div class="fig"><b>${learned(code)}</b><span>words learned</span></div>
-        <div class="fig"><b>${solid(code)}</b><span>words solid (16+ day interval)</span></div>
+        <div class="fig"><b>${known(code)}</b><span>words known (held a week+)</span></div>
         <div class="fig"><b>${ret === null ? '—' : ret + '%'}</b><span>7-day review accuracy</span></div>
       </div></section>
     ${today_}
+    ${stageCard(code)}
     ${tabs}
     ${units}
     <p class="endlevel">Level ${li+1}: ${Lv.units.reduce((n,u)=>n+u.words.length,0)} words, ${Lv.units.reduce((n,u)=>n+u.sents.length,0)} sentences, ${Lv.units.length} pattern notes. Ask Claude in this project for the next level when you want it; your progress stays.</p>
   </main>`;
+}
+
+function stageCard(code){
+  const s = stageInfo(code), C = COURSES[code];
+  const hrs = s.h < 10 ? s.h.toFixed(1) : Math.round(s.h);
+  if (!s.nxt) return `<section class="card"><h2>Stage: ${s.cur}</h2><p>${s.k} words known · ${hrs} h logged.</p></section>`;
+  const vocabPct = Math.min(100, Math.round(s.k / s.nxt[1] * 100)), hourPct = Math.min(100, Math.round(s.h / s.nxt[2] * 100));
+  const paceLine = s.weeks ? `At your 14-day pace (${Math.round(s.p*60)} min/day) the ${s.nxt[0]} hour mark is about ${s.weeks} week${s.weeks>1?'s':''} away.` : 'Pace shows after a few days of study.';
+  return `<section class="card"><h2>Stage: ${s.cur} <small style="font-weight:400;color:var(--muted)">· next ${s.nxt[0]}</small></h2>
+    <div class="figs">
+      <div class="fig"><b>${s.k} <small style="font-size:13px;color:var(--muted)">/ ${s.nxt[1]}</small></b><span>words known for ${s.nxt[0]} · ${vocabPct}%</span></div>
+      <div class="fig"><b>${hrs} <small style="font-size:13px;color:var(--muted)">/ ${s.nxt[2]} h</small></b><span>study hours for ${s.nxt[0]} · ${hourPct}%</span></div>
+      <div class="fig"><b>${s.p > 0 ? Math.round(s.p*60) : '—'}</b><span>min/day, last 14 days</span></div>
+    </div>
+    <p>${paceLine} Stage is estimated from vocabulary you've held for a week or more; the hour guide follows the Instituto Cervantes targets. Reading, listening and conversation outside the app count toward hours too, so log them.</p>
+    <div class="row"><button class="btn btn-line" data-act="logtime">Log outside practice</button></div></section>`;
 }
 
 /* Sheets */
@@ -804,6 +842,11 @@ function settingsSheet(confirmReset){
     ${confirmReset
       ? `<p>Erase all ${C.name} lessons and review history?</p><div class="row"><button class="btn btn-bad" data-act="reset-yes">Erase ${C.name} progress</button><button class="btn btn-text" data-act="settings">Cancel</button></div>`
       : `<button class="btn btn-line" data-act="reset">Reset ${C.name} progress</button>`}`, 'Settings');
+}
+function timeSheet(){
+  const C = COURSES[S.lang];
+  openSheet(sheetHead(`Log ${C.name} practice`) + `<p>Reading, podcasts, a conversation, a textbook chapter. Add it here so the hour count means something.</p>
+    <div class="seg">${[15,30,45,60].map(m => `<button data-act="addtime" data-m="${m}">${m}<small>min</small></button>`).join('')}</div>`, 'Log practice');
 }
 let toastT = null;
 function toast(msg){ toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => toastEl.hidden = true, 2400); }
@@ -1050,6 +1093,7 @@ function next(){
 }
 function complete(){
   if (L.kind === 'lesson') S.done[L.code][`${L.lv}-${L.u}-${L.l}`] = 1;
+  logTime(L.code, Math.min(3600, Math.round((Date.now() - L.start)/1000)));
   save(true);
   const C = COURSES[L.code];
   const m = Math.max(1, Math.round((Date.now() - L.start)/60e3));
@@ -1090,7 +1134,9 @@ const ACT = {
   'sayslow': b => speak(b.dataset.say, L.code, true),
   'quit': () => openSheet(`<h3>Stop this session?</h3><p>Answers so far are already in your review schedule. The lesson won't be marked done.</p>
      <div class="row"><button class="btn wide" data-act="close-sheet">Keep going</button><button class="btn btn-text" data-act="quit-yes">Stop</button></div>`, 'Stop session'),
-  'quit-yes': () => { closeSheet(); save(true); renderHome(); },
+  'quit-yes': () => { closeSheet(); logTime(L.code, Math.min(3600, Math.round((Date.now() - L.start)/1000))); save(true); renderHome(); },
+  'logtime': timeSheet,
+  'addtime': b => { logTime(S.lang, +b.dataset.m * 60); save(true); closeSheet(); renderHome(); toast(`${b.dataset.m} min added`); },
   'opt': b => {
     if (L.locked) return;
     L.sel = b.dataset.v;
