@@ -208,6 +208,16 @@ svg{display:block;flex:none}
 .tabs button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-t)}
 .est{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .checking{color:var(--muted);font-size:15px}
+
+.passage{white-space:pre-line}
+.msgs{display:flex;flex-direction:column;gap:10px;padding-block:10px 230px;min-height:40vh}
+.bub{max-width:88%;padding:10px 14px;border-radius:16px;font-size:17px;line-height:1.45;overflow-wrap:anywhere}
+.bub.ai{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:6px}
+.bub.me{align-self:flex-end;background:var(--accent-t);border-bottom-right-radius:6px}
+.bub.typing{color:var(--muted);letter-spacing:.2em}
+.fix{align-self:flex-end;max-width:88%;font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:-4px}
+.fix b{color:var(--bad);font-weight:600}
+.fix.good{color:var(--ok)}
 </style>
 
 </head>
@@ -758,7 +768,7 @@ const I = {
 
 /* State. items: one record per word/sentence/fill {b: box 0-6, due: ms, d: last day graded}. log: review accuracy per day. */
 const KEY = 'tessera.v3';
-const fresh = () => ({v:3,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},log:{},time:{},tlog:{},audio:true,updatedAt:0});
+const fresh = () => ({v:3,lang:'la',done:{la:{},es:{},it:{},pt:{}},items:{},log:{},time:{},tlog:{},extra:{la:[],es:[],it:[],pt:[]},readings:{la:[],es:[],it:[],pt:[]},audio:true,updatedAt:0});
 // CEFR stage guideposts: words known (box 3+) and cumulative study hours. Vocabulary sizes follow the usual A1≈500 / A2≈1200 / B1≈2500 / B2≈5000 estimates; hours follow Instituto Cervantes guidance for Spanish and are a pacing reference only.
 const STAGES = [['A1',500,80],['A2',1200,200],['B1',2500,400],['B2',5000,650]];
 function migrate(s){
@@ -770,6 +780,8 @@ function migrate(s){
   }
   for (const k in s.items){ const r = s.items[k]; if (r && r.b === undefined){ s.items[k] = {b:Math.min(2,r.s||0), due:Date.now(), d:''}; } }
   s.log = s.log || {}; s.time = s.time || {}; s.tlog = s.tlog || {};
+  s.extra = s.extra || {}; s.readings = s.readings || {};
+  for (const c of ORDER){ s.extra[c] = s.extra[c] || []; s.readings[c] = s.readings[c] || []; }
   return s;
 }
 function loadLocal(){
@@ -797,7 +809,7 @@ async function pushRemote(){
 async function initRemote(){
   try {
     const c = window.claude; if (!c || !c.use) return;
-    c.use('sample').then(ns => { sampleNS = (typeof ns === 'function') ? ns : null; }).catch(() => {});
+    c.use('sample').then(ns => { sampleNS = (typeof ns === 'function') ? ns : null; if (sampleNS && screen === 'home') renderHome(); }).catch(() => {});
     const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
     if (!db || !user) return;
     const id = await user.id(); if (!id) return;
@@ -830,10 +842,24 @@ function grade(it, ok, strong){
   r.d = t;
   S.items[it.key] = r;
 }
-const dueItems = code => COURSES[code].all.filter(it => { const r = rec(it); return r && r.due <= Date.now(); }).sort((a,b) => rec(a).due - rec(b).due);
-const nextDue = code => { const ds = COURSES[code].all.map(rec).filter(Boolean).map(r => r.due); return ds.length ? Math.min(...ds) : null; };
-const learned = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 1; }).length;
-const known = code => COURSES[code].allWords.filter(w => { const r = rec(w); return r && r.b >= 3; }).length;
+/* Extra items: words and sentences the learner adds (from the Reader, chat corrections, or by hand). u = -1 marks them as outside any unit. */
+const extraItems = code => S.extra[code].map(x => ({t:x.t, en:x.en, alt:[], u:-1, key:code+'|'+(x.kind||'w')+'|'+x.t, kind:x.kind||'w', src:x.src||''}));
+const allItems = code => [...COURSES[code].all, ...extraItems(code)];
+const allWordsOf = code => [...COURSES[code].allWords, ...extraItems(code).filter(i => i.kind === 'w')];
+const unitWords = (C, w) => w.u >= 0 ? C.units[w.u].words : C.allWords;
+function addExtra(code, t, en, kind, src){
+  t = String(t||'').trim(); en = String(en||'').trim(); if (!t || !en) return false;
+  const k = norm(t), C = COURSES[code];
+  if (C.all.some(it => it.kind === (kind||'w') && norm(it.t) === k)) return false;
+  if (S.extra[code].some(x => (x.kind||'w') === (kind||'w') && norm(x.t) === k)) return false;
+  if (S.extra[code].length >= 600) return false;
+  S.extra[code].push({t, en, kind: kind||'w', src: src||'', at: Date.now()});
+  return true;
+}
+const dueItems = code => allItems(code).filter(it => { const r = rec(it); return r && r.due <= Date.now(); }).sort((a,b) => rec(a).due - rec(b).due);
+const nextDue = code => { const ds = allItems(code).map(rec).filter(Boolean).map(r => r.due); return ds.length ? Math.min(...ds) : null; };
+const learned = code => allWordsOf(code).filter(w => { const r = rec(w); return r && r.b >= 1; }).length;
+const known = code => allWordsOf(code).filter(w => { const r = rec(w); return r && r.b >= 3; }).length;
 function logTime(code, secs){
   if (!(secs > 0)) return;
   S.time[code] = (S.time[code] || 0) + secs;
@@ -908,11 +934,11 @@ function opts(correct, pool, n=3){
 }
 function mkMC(C, w, dir, isNew){
   const f = dir === 't2e' ? 'en' : 't';
-  let o = opts(w[f], C.units[w.u].words.filter(x=>x!==w).map(x=>x[f]));
+  let o = opts(w[f], unitWords(C,w).filter(x=>x!==w).map(x=>x[f]));
   if (o.length < 4) o = opts(w[f], C.allWords.filter(x=>x!==w).map(x=>x[f]));
   return {k:'mc', dir, item:w, isNew:!!isNew, opts:o, ans:w[f]};
 }
-const mkListen = (C,w) => ({k:'listen', item:w, opts:opts(w.t, C.units[w.u].words.filter(x=>x!==w).map(x=>x.t)), ans:w.t});
+const mkListen = (C,w) => ({k:'listen', item:w, opts:opts(w.t, unitWords(C,w).filter(x=>x!==w).map(x=>x.t)), ans:w.t});
 const mkType = w => ({k:'type', item:w});
 const mkMatch = ws => ({k:'match', items:ws});
 const mkFill = f => ({k:'fill', item:f, opts:shuffle([f.ans, ...f.dis]), ans:f.ans});
@@ -975,7 +1001,7 @@ function reviewEx(C, it){
 function buildReview(code, extra){
   const C = COURSES[code];
   const pool = extra
-    ? C.all.filter(seen).sort((a,b) => (rec(a).b - rec(b).b) || (rec(a).due - rec(b).due)).slice(0, 12)
+    ? allItems(code).filter(seen).sort((a,b) => (rec(a).b - rec(b).b) || (rec(a).due - rec(b).due)).slice(0, 12)
     : dueItems(code).slice(0, REVIEW_CAP);
   if (!pool.length) return null;
   return shuffle(pool).map(it => reviewEx(C, it));
@@ -991,7 +1017,7 @@ function renderHome(){
   const code = S.lang, C = COURSES[code], done = S.done[code];
   const li = viewLevel[code] ?? curLevel(code);
   const Lv = C.levels[li];
-  const due = dueItems(code).length, nd = nextDue(code), anySeen = C.all.some(seen);
+  const due = dueItems(code).length, nd = nextDue(code), anySeen = allItems(code).some(seen);
   const nx = nextLesson(code, li);
   const ret = retention7();
   const lessonBtn = (n, label) => n ? `<button class="btn ${label==='line'?'btn-line':''}" data-act="lesson" data-lv="${n[0]}" data-u="${n[1]}" data-l="${n[2]}">Unit ${n[1]+1} · ${LESSONS[n[2]][0]} <span class="est">${mins(14)}</span></button>` : '';
@@ -1035,6 +1061,7 @@ function renderHome(){
         <div class="fig"><b>${ret === null ? '—' : ret + '%'}</b><span>7-day review accuracy</span></div>
       </div></section>
     ${today_}
+    ${inputCard(code)}
     ${stageCard(code)}
     ${tabs}
     ${units}
@@ -1057,6 +1084,215 @@ function stageCard(code){
     </div>
     <p>${paceLine} Stage is estimated from vocabulary you've held for a week or more; the hour guide follows the Instituto Cervantes targets. Reading, listening and conversation outside the app count toward hours too, so log them.</p>
     <div class="row"><button class="btn btn-line" data-act="logtime">Log outside practice</button></div></section>`;
+}
+
+/* ───── Beyond drills: Reader, conversation partner, my words (Reader and chat need Claude behind the page) ───── */
+const TOPICS = ['Daily life','Food','Travel','Work','Family','History','Sports','News','A dialogue','Surprise me'];
+const SCENARIOS = [
+  ['Free conversation','Casual chat. Follow the student’s lead and ask about their life.'],
+  ['At a café','You are a waiter in a café; the student is a customer ordering and chatting.'],
+  ['Asking directions','You are a passer-by in a city; the student is lost and asks the way. Give directions and ask where they are from.'],
+  ['Your week','Ask the student about their week, their work and their plans for the weekend.'],
+  ['Meeting someone new','You are a new acquaintance at a party; get to know each other.'],
+  ['Debate','Pick a light topic (city vs countryside, coffee vs tea, morning vs night) and disagree politely so the student has to argue back.'],
+];
+const GRAMMAR_CEFR = ['A1','A2','B1','B1+','B2','B2+'];
+function learnerBrief(code){
+  const C = COURSES[code];
+  const doneUnits = C.units.filter(U => [0,1,2,3].some(l => S.done[code][`${U.lv}-${U.ui}-${l}`]));
+  const maxLv = doneUnits.reduce((m,U) => Math.max(m, U.lv), 0);
+  let levelsDone = 0; while (levelsDone < C.levels.length && C.levels[levelsDone].units.every(U => [0,1,2,3].every(l => S.done[code][`${U.lv}-${U.ui}-${l}`]))) levelsDone++;
+  const grammar = doneUnits.map(U => U.p.h);
+  const knownW = allWordsOf(code).filter(seen).map(w => w.t);
+  return {C, cefr: GRAMMAR_CEFR[Math.min(Math.max(maxLv, levelsDone), GRAMMAR_CEFR.length-1)], grammar, knownW};
+}
+const langNote = code => code === 'la' ? 'Classical Latin with macrons on long vowels.' : code === 'pt' ? 'Brazilian Portuguese.' : code === 'es' ? 'Neutral Latin American Spanish.' : 'Standard Italian.';
+const findItem = (code, t) => { const k = norm(t), kb = stripArt(k), m = w => w.kind === 'w' && (norm(w.t) === k || stripArt(norm(w.t)) === kb); return extraItems(code).find(m) || COURSES[code].allWords.find(m) || null; };
+function sampleErr(e){
+  const c = e && e.code;
+  if (c === 'not_granted') return 'Claude access was declined, so this feature is off for now.';
+  if (c === 'rate_limited') return 'Too many requests at once. Wait a few seconds and try again.';
+  if (c === 'invalid_json') return 'Claude’s answer came back malformed. Try again.';
+  return 'Couldn’t reach Claude. Try again in a moment.';
+}
+
+function inputCard(code){
+  const C = COURSES[code], past = S.readings[code].slice(0,3), n = S.extra[code].length;
+  const words = `<button class="linkbtn" data-act="mywords">My words (${n})</button><button class="linkbtn" data-act="addword">Add a word</button>`;
+  if (!sampleNS) return `<section class="card"><h2>Reading and conversation</h2><p>These two need Claude behind the page, so they work in the Claude version of this app, not this one. You can still add words you meet elsewhere and they join your reviews.</p><div class="row" style="gap:14px">${words}</div></section>`;
+  return `<section class="card"><h2>Reading and conversation</h2>
+    <p>Claude writes a passage at your level from words you know plus five new ones, or holds a conversation in ${C.name} and corrects you as you go. New words and corrected sentences join your reviews.</p>
+    <div class="row"><button class="btn" data-act="readsheet">Read a passage <span class="est">~10 min</span></button><button class="btn btn-line" data-act="chatsheet">Conversation <span class="est">~10 min</span></button></div>
+    ${past.length ? `<div class="lessons">${past.map((P,i) => `<button class="lrow" data-act="reread" data-i="${i}"><span class="st"></span><span><span class="lname" lang="${C.lang}">${esc(P.title)}</span><span class="lsub">${esc(P.topic||'')} · ${P.neww.map(w=>w.t).join(', ')}</span></span><span class="pct">Read again</span></button>`).join('')}</div>` : ''}
+    <div class="row" style="gap:14px">${words}</div></section>`;
+}
+
+/* Reader */
+function readSheet(){
+  const C = COURSES[S.lang];
+  openSheet(sheetHead(`Read in ${C.name}`) + `<p>Pick a topic. The passage uses words you already know plus five new ones, with questions after.</p>
+    <div class="seg" style="grid-template-columns:repeat(2,1fr)">${TOPICS.map(t => `<button data-act="readgo" data-topic="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <h4>Or your own topic</h4>
+    <div class="row" style="flex-wrap:nowrap"><input class="input" id="topicin" placeholder="e.g. Roman history, my job in payments" aria-label="Topic"><button class="btn" data-act="readgo" data-topic="">Go</button></div>`, 'Read');
+}
+let readCtl = null;
+async function generatePassage(topic){
+  const code = S.lang, {C, cefr, grammar, knownW} = learnerBrief(code);
+  if (!sampleNS) return toast('Reading needs the Claude version of this app.');
+  closeSheet(); screen = 'busy';
+  app.innerHTML = `<div class="wrap endscr"><h1>Writing your passage</h1><p class="lead">${esc(C.name)} · ${esc(topic)} · about ${cefr}. Claude is writing from the ${knownW.length} words you know plus five new ones. Usually 10–40 seconds.</p>
+    <div class="row"><button class="btn btn-line" data-act="readcancel">Cancel</button></div></div>`;
+  readCtl = new AbortController();
+  const prompt = `Write a reading passage for a learner of ${C.name}. ${langNote(code)}
+Learner: grammar at about CEFR ${cefr}. Patterns studied: ${grammar.length ? grammar.join('; ') : 'beginner basics'}.
+Words the learner knows (use freely): ${knownW.length ? knownW.join(', ') : 'very few; keep it simple'}.
+Topic: ${topic}.
+Requirements:
+- 150 to 200 words, 2 or 3 short paragraphs separated by a blank line, natural ${C.name} at that level. Use the known words as much as possible.
+- Introduce exactly 5 new useful high-frequency words (not names, not words in the known list), each used at least twice in the passage.
+- 3 comprehension questions in English, each with one correct answer and two plausible wrong answers, all short.
+- gloss: an object mapping EVERY distinct word in the passage (lowercase, punctuation stripped, exactly as spelled in the text, inflected forms included) to a short English meaning; names map to "(name)".
+Return only JSON: {"title": string, "text": string, "new": [{"w": string, "en": string}], "q": [{"q": string, "a": string, "dis": [string, string]}], "gloss": {string: string}}`;
+  try {
+    const res = await sampleNS.json(prompt, {modelTier:'default', cache:false, signal: readCtl.signal});
+    if (screen !== 'busy') return;
+    if (!res || typeof res.text !== 'string' || !Array.isArray(res.new) || !Array.isArray(res.q) || res.q.length < 2) throw {code:'invalid_json'};
+    const gloss = {}; for (const k in (res.gloss||{})) gloss[clean(k)] = String(res.gloss[k]).slice(0,60);
+    const neww = res.new.slice(0,5).map(x => ({t:String(x.w||'').trim(), en:String(x.en||'').trim()})).filter(x => x.t && x.en);
+    const P = {title:String(res.title||topic).slice(0,80), text:res.text.trim(), topic, gloss, neww, q:res.q.slice(0,3).map(x => [String(x.q), String(x.a), (x.dis||[]).slice(0,2).map(String)]), at:Date.now()};
+    neww.forEach(w => { addExtra(code, w.t, w.en, 'w', 'reader'); gloss[clean(w.t)] = gloss[clean(w.t)] || w.en; });
+    S.readings[code].unshift(P); if (S.readings[code].length > 10) S.readings[code].length = 10;
+    save(true);
+    startSession('reader', P);
+  } catch(e){
+    if (e && e.name === 'AbortError') return;
+    toast(sampleErr(e)); renderHome();
+  }
+}
+function buildReaderSession(code, P){
+  const C = COURSES[code];
+  const items = P.neww.map(w => findItem(code, w.t)).filter(Boolean);
+  const U = {r:{t:P.text, q:P.q}, ui:0};
+  const seq = [{k:'passage', P, item:null}];
+  P.q.forEach((_,i) => seq.push(mkRead(U, i)));
+  items.forEach((w,i) => { seq.push(mkMC(C, w, 't2e', !seen(w))); if (i >= 1) seq.push(mkType(items[i-1])); });
+  if (items.length) seq.push(mkType(items[items.length-1]));
+  return seq;
+}
+
+/* Conversation */
+let CH = null;
+function chatSheet(){
+  const C = COURSES[S.lang];
+  openSheet(sheetHead(`Talk in ${C.name}`) + `<p>Claude plays the other person and corrects each message you send. Type in ${C.name}; the accent keys are under the box. End the chat to see your corrections.</p>
+    <div class="courses">${SCENARIOS.map((s,i) => `<button class="crow" data-act="chatgo" data-i="${i}" style="grid-template-columns:1fr auto"><span><b>${esc(s[0])}</b><small>${esc(s[1])}</small></span><span class="pct">›</span></button>`).join('')}</div>`, 'Conversation');
+}
+function chatBrief(code, sc){
+  const {C, cefr, grammar, knownW} = learnerBrief(code);
+  return `You are a ${C.name} conversation partner for a learner. ${langNote(code)}
+Learner: grammar at about CEFR ${cefr}. Patterns studied: ${grammar.length ? grammar.join('; ') : 'beginner basics'}. Vocabulary they know includes: ${knownW.slice(0,150).join(', ') || 'very little'}.
+Scenario: ${sc[1]}
+Rules: write only in ${C.name}, 1 to 3 short sentences per turn, at or just above the learner's level, and end every turn with a question or a prompt. Stay in character. Recycle the patterns they have studied. If the learner writes in English, answer briefly in ${C.name} and invite them to try in ${C.name}.
+After each learner message, check it: "ok" is true if it is correct and natural (ignore missing accents${code === 'la' ? ' and macrons' : ''} and capitalisation). Otherwise "ok" is false, "fix" is the corrected sentence, "note" is one short English sentence naming the main error, and "en" is the English meaning of the corrected sentence.
+Always answer with JSON only: {"reply": string, "ok": boolean, "fix": string, "note": string, "en": string}`;
+}
+async function startChat(i){
+  if (!sampleNS) return toast('Conversation needs the Claude version of this app.');
+  const code = S.lang, sc = SCENARIOS[i], C = COURSES[code];
+  closeSheet();
+  CH = {code, sc, turns:[{role:'user', content: chatBrief(code, sc) + '\n\nBegin: greet the learner in character and ask one question. ("ok" true, "fix", "note" and "en" empty.)'}], msgs:[], busy:false, corrections:[], added:0, lastTick:Date.now(), start:Date.now()};
+  screen = 'chat';
+  app.innerHTML = `<div class="lesson">
+    <div class="wrap ltop"><button class="iconbtn" data-act="endchat" aria-label="End conversation">${I.close}</button>
+      <span class="count" style="flex:1;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sc[0])} · ${C.name}</span>
+      <button class="linkbtn" data-act="endchat">End</button></div>
+    <div class="wrap msgs" id="msgs" aria-live="polite"></div>
+    <footer class="foot"><div class="wrap footin" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div class="accents" aria-label="Special characters">${ACCENTS[code].map(a => `<button class="acc" data-act="acc" data-c="${esc(a)}">${esc(a)}</button>`).join('')}</div>
+      <div class="row" style="flex-wrap:nowrap"><input class="input" id="cin" lang="${C.lang}" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" placeholder="Write in ${C.name}" aria-label="Your message"><button class="btn" id="csend" data-act="csend">Send</button></div>
+    </div></footer></div>`;
+  window.scrollTo(0,0);
+  await chatCall();
+}
+function drawChat(){
+  const lg = COURSES[CH.code].lang, el = $('#msgs'); if (!el) return;
+  el.innerHTML = CH.msgs.map(m => m.who === 'ai'
+    ? `<div class="bub ai" lang="${lg}">${esc(m.text)}${canSpeak ? ` <button class="spk sm" style="display:inline-grid;vertical-align:middle;margin-left:6px" data-act="say" data-say="${esc(m.text)}" aria-label="Play">${I.spk}</button>` : ''}</div>`
+    : `<div class="bub me" lang="${lg}">${esc(m.text)}</div>${m.checked ? (m.ok ? `<div class="fix good">${I.check} Correct</div>` : `<div class="fix"><b lang="${lg}">${esc(m.fix)}</b> · ${esc(m.note)}${m.added ? ' · added to review' : ''}</div>`) : ''}`
+  ).join('') + (CH.busy ? `<div class="bub ai typing">…</div>` : '');
+  window.scrollTo(0, document.body.scrollHeight);
+}
+async function chatCall(){
+  CH.busy = true; drawChat();
+  const send = $('#csend'); if (send) send.disabled = true;
+  let turns = CH.turns.slice(); while (turns.length > 41) turns.splice(1, 2);
+  turns = turns.map((t,i) => i === turns.length-1 && i > 0 ? {role:t.role, content: t.content + '\n\n(JSON only, in the format given at the start.)'} : t);
+  try {
+    const res = await sampleNS.json(turns, {modelTier:'quick', cache:false});
+    if (screen !== 'chat') return;
+    const reply = res && typeof res.reply === 'string' ? res.reply.trim() : '';
+    if (!reply) throw {code:'invalid_json'};
+    const last = CH.msgs[CH.msgs.length-1];
+    if (last && last.who === 'me' && !last.checked){
+      last.checked = true; last.ok = res.ok !== false || !res.fix;
+      if (!last.ok){
+        last.fix = String(res.fix||'').trim(); last.note = String(res.note||'').trim(); last.en = String(res.en||'').trim();
+        CH.corrections.push({orig:last.text, fix:last.fix, note:last.note, en:last.en});
+        if (last.fix && last.en && addExtra(CH.code, last.fix, last.en, 's', 'chat')){ last.added = true; CH.added++; }
+      }
+    }
+    CH.turns.push({role:'assistant', content: reply});
+    CH.msgs.push({who:'ai', text: reply});
+    if (S.audio) speak(reply, CH.code);
+    save();
+  } catch(e){
+    if (e && e.code === 'not_granted'){ toast(sampleErr(e)); return renderHome(); }
+    toast(sampleErr(e));
+    // drop the unanswered learner turn so the transcript stays user/assistant alternating
+    if (CH.turns.length > 1 && CH.turns[CH.turns.length-1].role === 'user'){ CH.turns.pop(); const m = CH.msgs.pop(); const inp = $('#cin'); if (inp && m) inp.value = m.text; }
+  } finally {
+    CH.busy = false; drawChat();
+    const s2 = $('#csend'); if (s2) s2.disabled = false;
+    const inp = $('#cin'); if (inp && matchMedia('(pointer:fine)').matches) inp.focus();
+  }
+}
+function chatSend(){
+  if (!CH || CH.busy) return;
+  const inp = $('#cin'), v = inp.value.trim(); if (!v) return;
+  inp.value = '';
+  const now = Date.now(); logTime(CH.code, Math.min(90, Math.round((now - CH.lastTick)/1000))); CH.lastTick = now;
+  CH.msgs.push({who:'me', text:v, checked:false});
+  CH.turns.push({role:'user', content: 'Learner: ' + v});
+  chatCall();
+}
+function endChat(){
+  if (!CH) return renderHome();
+  const C = COURSES[CH.code], n = CH.msgs.filter(m => m.who === 'me').length;
+  const now = Date.now(); logTime(CH.code, Math.min(90, Math.round((now - CH.lastTick)/1000))); save(true);
+  screen = 'done';
+  app.innerHTML = `<div class="wrap endscr">
+    <h1>Conversation over</h1>
+    <p class="lead">${n} message${n===1?'':'s'} from you · ${CH.corrections.length} correction${CH.corrections.length===1?'':'s'}${CH.added ? ` · ${CH.added} corrected sentence${CH.added===1?'':'s'} added to review` : ''} · ${Math.max(1, Math.round((now - CH.start)/60e3))} min</p>
+    ${CH.corrections.length ? `<ul class="misses">${CH.corrections.map(c => `<li><span class="q">${esc(c.orig)}<br><small>${esc(c.note)}</small></span><span class="a" lang="${C.lang}">${esc(c.fix)}<br><small style="font-weight:400;color:var(--muted)">${esc(c.en)}</small></span></li>`).join('')}</ul>` : '<p class="lead">No corrections. Try a harder scenario, or write longer sentences.</p>'}
+    <div class="row"><button class="btn" data-act="chatsheet">New conversation</button><button class="btn btn-line" data-act="home">Back to course</button></div></div>`;
+  CH = null; window.scrollTo(0,0);
+}
+
+/* My words */
+function myWordsSheet(){
+  const C = COURSES[S.lang], xs = S.extra[S.lang];
+  const st = it => { const r = rec(it); return r ? (r.due <= Date.now() ? 'due' : 'in ' + inTime(r.due - Date.now())) : 'new'; };
+  openSheet(sheetHead(`My words · ${C.name}`) + (xs.length ? `<p>Words from the Reader, corrected sentences from conversations, and anything you add. They review on the same schedule as the course.</p>
+    <ul class="wlist">${extraItems(S.lang).map((it,i) => `<li><button class="iconbtn" style="width:32px;height:32px" data-act="delword" data-i="${i}" aria-label="Remove">${I.close}</button><span class="wt" lang="${C.lang}">${esc(it.t)}</span><span class="we">${esc(it.en)}</span><span class="due">${st(it)}</span></li>`).join('')}</ul>` : '<p>Nothing yet. Words from the Reader and corrections from conversations land here, or add one by hand.</p>') +
+    `<div class="row" style="margin-top:16px"><button class="btn btn-line" data-act="addword">Add a word</button></div>`, 'My words');
+}
+function addWordSheet(){
+  const C = COURSES[S.lang];
+  openSheet(sheetHead(`Add to ${C.name}`) + `<p>A word or short phrase you met somewhere else. It gets drilled like a course word.</p>
+    <div class="row" style="flex-direction:column;align-items:stretch"><input class="input" id="nw-t" lang="${C.lang}" placeholder="${C.name}" aria-label="Word in ${C.name}" autocapitalize="off" autocorrect="off" spellcheck="false"><input class="input" id="nw-en" placeholder="English meaning" aria-label="English meaning">
+    <div class="accents" aria-label="Special characters">${ACCENTS[S.lang].map(a => `<button class="acc" data-act="acc" data-c="${esc(a)}">${esc(a)}</button>`).join('')}</div>
+    <button class="btn" data-act="saveword">Save</button></div>`, 'Add a word');
+  $('#nw-t').focus();
 }
 
 /* Sheets */
@@ -1116,9 +1352,9 @@ function toast(msg){ toastEl.textContent = msg; toastEl.hidden = false; clearTim
 /* Session */
 function startSession(kind, lv, u, l){
   const code = S.lang;
-  const q = kind === 'lesson' ? buildLesson(code, lv, u, l) : kind === 'testout' ? buildTestOut(code, lv, u) : buildReview(code, kind === 'extra');
+  const q = kind === 'lesson' ? buildLesson(code, lv, u, l) : kind === 'testout' ? buildTestOut(code, lv, u) : kind === 'reader' ? buildReaderSession(code, lv) : buildReview(code, kind === 'extra');
   if (!q) return toast('Nothing to review yet.');
-  L = {code, kind, lv, u, l, queue:q, i:0, done:0, total:q.length, misses:[], firstTry:0, start:Date.now(), lastTick:Date.now()};
+  L = {code, kind, lv, u, l, queue:q, i:0, done:0, total:q.length, misses:[], firstTry:0, start:Date.now(), lastTick:Date.now(), gloss: kind === 'reader' ? lv.gloss : null};
   screen = 'lesson'; closeSheet();
   app.innerHTML = `<div class="lesson">
     <div class="wrap ltop"><button class="iconbtn" data-act="quit" aria-label="Stop session">${I.close}</button>
@@ -1131,11 +1367,19 @@ function startSession(kind, lv, u, l){
 }
 const cur = () => L.queue[L.i];
 function setBar(){ const p = Math.round(L.done / L.total * 100); $('#bar').style.width = p + '%'; $('#track').setAttribute('aria-valuenow', p); $('#count').textContent = `${L.done}/${L.total}`; }
-function glossTokens(text, code){
+function glossOf(code, tok, extra){
+  const k = clean(tok);
+  if (extra){ const g = extra[k] ?? extra[stripAcc(k)]; if (g) return g; }
+  const x = S.extra[code].find(w => (w.kind||'w') === 'w' && (clean(w.t) === k || stripArt(clean(w.t)) === k));
+  if (x) return x.en;
+  return COURSES[code].gloss(tok);
+}
+function glossTokens(text, code, extra){
+  extra = extra || (L && L.gloss) || null;
   return text.split(/(\s+)/).map(part => {
     if (!part || /^\s+$/.test(part)) return part;
     if (part.includes('___')) return part.replace('___', '<span class="blank">&nbsp;</span>');
-    const g = COURSES[code].gloss(part);
+    const g = glossOf(code, part, extra);
     return g ? `<span class="gl" role="button" tabindex="0" data-act="gl" data-w="${esc(part.replace(PUNCT,''))}" data-g="${esc(g)}">${esc(part)}</span>` : esc(part);
   }).join('');
 }
@@ -1151,6 +1395,15 @@ function renderEx(){
   if (ex.k === 'pattern'){
     h = `<div class="qhead"><span class="newtag">Pattern · Unit ${ex.U.ui+1}</span><h2 class="qt">Read this once, then drill it</h2></div>${patternHTML(ex.U)}`;
     footHTML = `<button class="btn wide" id="cont" data-act="cont">Continue</button>`;
+    L.locked = true;
+  } else if (ex.k === 'passage'){
+    const P = ex.P;
+    h = `<div class="qhead"><span class="newtag">Reading · ${esc(P.topic||'')}</span><h2 class="qt" lang="${lg}">${esc(P.title)}</h2></div>
+      <div class="passage" lang="${lg}">${P.text.split(/\n+/).map(p => `<p style="margin:0 0 12px">${glossTokens(p, L.code, P.gloss)}</p>`).join('')}</div>
+      <div class="hint" id="hint" aria-live="polite">Tap a dotted word for its meaning. ${canSpeak ? 'The speaker reads the whole passage.' : ''}</div>
+      <div class="row">${canSpeak ? `<button class="spk" data-act="say" data-say="${esc(P.text.replace(/\n+/g,' '))}" aria-label="Read aloud">${I.spk}</button>` : ''}
+        <div class="pat" style="flex:1 1 240px"><h3 class="ptitle" style="font-size:15px">New words in this passage</h3><ul>${P.neww.map(w => `<li><span class="ex" lang="${lg}">${esc(w.t)}</span> · ${esc(w.en)}</li>`).join('')}</ul></div></div>`;
+    footHTML = `<button class="btn wide" id="cont" data-act="cont">Questions</button>`;
     L.locked = true;
   } else if (ex.k === 'mc' && ex.dir === 't2e'){
     h = `<div class="qhead">${ex.isNew?'<span class="newtag">New word</span>':''}<h2 class="qt">What does this mean?</h2></div>
@@ -1203,7 +1456,7 @@ function renderEx(){
   setBar();
   const inp = $('#ans');
   if (inp){ inp.addEventListener('input', () => { $('#check').disabled = !inp.value.trim(); }); if (matchMedia('(pointer:fine)').matches) inp.focus(); }
-  if (ex.k === 'pattern') $('#cont').focus({preventScroll:true});
+  if (ex.k === 'pattern' || ex.k === 'passage') $('#cont').focus({preventScroll:true});
   if (S.audio && ((ex.k === 'mc' && ex.dir === 't2e') || ex.k === 'listen' || ex.k === 'dict' || (ex.k === 'build' && ex.dir === 't2e'))) setTimeout(() => speak(ex.item.t, L.code), 250);
 }
 function drawBuild(){
@@ -1349,7 +1602,7 @@ function resolve(ok, shown, note, fromMatch){
 function next(){
   if (!L.locked) return;
   const ex = cur();
-  if (ex.k === 'pattern' && !ex.counted){ ex.counted = true; L.done++; }
+  if ((ex.k === 'pattern' || ex.k === 'passage') && !ex.counted){ ex.counted = true; L.done++; }
   L.i++;
   if (L.i >= L.queue.length) return complete();
   window.scrollTo(0,0);
@@ -1376,7 +1629,7 @@ function complete(){
   const C = COURSES[L.code];
   const m = Math.max(1, Math.round((Date.now() - L.start)/60e3));
   const due = dueItems(L.code).length;
-  const title = L.kind === 'lesson' ? `Unit ${L.u+1} · ${LESSONS[L.l][0]} done` : L.kind === 'testout' ? (passed ? `Tested out of Unit ${L.u+1}` : `Unit ${L.u+1}: not yet`) : L.kind === 'review' ? 'Review done' : 'Drill done';
+  const title = L.kind === 'lesson' ? `Unit ${L.u+1} · ${LESSONS[L.l][0]} done` : L.kind === 'testout' ? (passed ? `Tested out of Unit ${L.u+1}` : `Unit ${L.u+1}: not yet`) : L.kind === 'review' ? 'Review done' : L.kind === 'reader' ? 'Reading done' : 'Drill done';
   const uniqMiss = [...new Map(L.misses.map(x => [x.q + '|' + x.a, x])).values()];
   const nx = nextLesson(L.code, L.kind === 'lesson' ? L.lv : curLevel(L.code));
   screen = 'done';
@@ -1414,7 +1667,7 @@ const ACT = {
   'sayslow': b => speak(b.dataset.say, L.code, true),
   'quit': () => openSheet(`<h3>Stop this session?</h3><p>Answers so far are already in your review schedule. The lesson won't be marked done.</p>
      <div class="row"><button class="btn wide" data-act="close-sheet">Keep going</button><button class="btn btn-text" data-act="quit-yes">Stop</button></div>`, 'Stop session'),
-  'quit-yes': () => { closeSheet(); tick(); save(true); renderHome(); },
+  'quit-yes': () => { closeSheet(); if (L) tick(); save(true); renderHome(); },
   'logtime': timeSheet,
   'addtime': b => { logTime(S.lang, +b.dataset.m * 60); save(true); closeSheet(); renderHome(); toast(`${b.dataset.m} min added`); },
   'opt': b => {
@@ -1427,7 +1680,24 @@ const ACT = {
   'tile': b => { if (L.locked) return; const id = +b.dataset.id; if (!L.picked.includes(id)){ L.picked.push(id); if (S.audio && cur().dir === 'e2t') speak(cur().tiles[id].text, L.code); drawBuild(); } },
   'atile': b => { if (L.locked) return; const id = +b.dataset.id; L.picked = L.picked.filter(x => x !== id); drawBuild(); },
   'mt': b => matchTap(b.dataset.side, +b.dataset.i),
-  'acc': b => { const inp = $('#ans'); if (!inp) return; const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s; inp.value = inp.value.slice(0,s) + b.dataset.c + inp.value.slice(e); inp.focus(); inp.setSelectionRange(s+1, s+1); $('#check').disabled = !inp.value.trim(); },
+  'acc': b => {
+    const ae = document.activeElement, inp = (ae && ae.tagName === 'INPUT' && ae.id !== 'nw-en') ? ae : ($('#ans') || $('#cin') || $('#nw-t')); if (!inp) return;
+    const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s;
+    inp.value = inp.value.slice(0,s) + b.dataset.c + inp.value.slice(e); inp.focus(); inp.setSelectionRange(s+1, s+1);
+    const c = $('#check'); if (c && inp.id === 'ans') c.disabled = !inp.value.trim();
+  },
+  'readsheet': readSheet,
+  'readgo': b => { const t = b.dataset.topic || ($('#topicin') ? $('#topicin').value.trim() : ''); if (!t) return toast('Type a topic first.'); generatePassage(t === 'Surprise me' ? 'anything you like, something a curious adult would enjoy' : t); },
+  'readcancel': () => { if (readCtl) readCtl.abort(); renderHome(); },
+  'reread': b => { const P = S.readings[S.lang][+b.dataset.i]; if (P) startSession('reader', P); },
+  'chatsheet': chatSheet,
+  'chatgo': b => startChat(+b.dataset.i),
+  'csend': chatSend,
+  'endchat': endChat,
+  'mywords': myWordsSheet,
+  'addword': addWordSheet,
+  'saveword': () => { const t = $('#nw-t').value, en = $('#nw-en').value; if (!t.trim() || !en.trim()) return toast('Both fields are needed.'); if (addExtra(S.lang, t, en, 'w', 'manual')){ save(true); closeSheet(); renderHome(); toast(`Added: ${t.trim()}`); } else toast('That word is already in the course or your list.'); },
+  'delword': b => { S.extra[S.lang].splice(+b.dataset.i, 1); save(true); myWordsSheet(); },
   'gl': b => { const h = $('#hint'); if (h) h.innerHTML = `<b lang="${COURSES[L.code].lang}">${esc(b.dataset.w)}</b> = ${esc(b.dataset.g)}`; speak(b.dataset.w, L.code); },
   'check': check,
   'reveal': revealSpeak,
@@ -1442,6 +1712,9 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && sheetRoot.innerHTML){ closeSheet(); return; }
   if (e.target.classList && e.target.classList.contains('gl') && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); ACT.gl(e.target); return; }
+  if (screen === 'chat' && e.key === 'Enter' && e.target.id === 'cin'){ e.preventDefault(); chatSend(); return; }
+  if (sheetRoot.innerHTML && e.key === 'Enter' && e.target.id === 'topicin'){ e.preventDefault(); const t = e.target.value.trim(); if (t) generatePassage(t); return; }
+  if (sheetRoot.innerHTML && e.key === 'Enter' && (e.target.id === 'nw-t' || e.target.id === 'nw-en')){ e.preventDefault(); ACT.saveword(); return; }
   if (screen !== 'lesson' || sheetRoot.innerHTML) return;
   const inInput = e.target.tagName === 'INPUT';
   if (e.key === 'Enter'){
